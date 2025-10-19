@@ -52,6 +52,7 @@ public:
 	int		width;	// actual screen width after video setup
 	int		height;	// same for height
 	int     volumeLevel; // Volume level
+	int		creatureRegen; // Creature Regen Speed
 
 	char	gamefile[50];
 	int		gamefileLen;
@@ -92,7 +93,6 @@ private:
 	int  bpp;	    // bits per pixel
 	int  flags;	    // SDL flags
 	bool FullScreen;    // FullScreen
-	int  creatureRegen; // Creature Regen Speed
 };
 
 #endif // OS_LINK_HEADER

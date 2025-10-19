@@ -16,6 +16,8 @@ is held by Douglas J. Morgan.
 
 #include <iostream>
 #include <fstream>
+#include <algorithm>
+#include <cmath>
 
 using namespace std;
 
@@ -320,69 +322,68 @@ void OS_Link::stop_demo() {
 // Processes key strokes.
 void OS_Link::handle_key_down(SDL_Keysym * keysym)
 {
-//    std::cout << "In handle_key_down" << std::endl;
-	dodBYTE c;
-	if (viewer.display_mode == Viewer::MODE_MAP)
-	{
-		switch(keysym->sym)
-		{
-		case SDLK_ESCAPE:
-			main_menu();
-			break;
-		default:
-			viewer.display_mode = Viewer::MODE_3D;
-			--viewer.UPDATE;
-			parser.KBDPUT(32); // This is a (necessary ???) hack.
-			break;
-		}
+    dodBYTE c;
+    if (viewer.display_mode == Viewer::MODE_MAP)
+    {
+        switch(keysym->sym)
+        {
+        case SDLK_ESCAPE:
+            main_menu();
+            break;
+        default:
+            viewer.display_mode = Viewer::MODE_3D;
+            --viewer.UPDATE;
+            parser.KBDPUT(32); // This is a (necessary ???) hack.
+            break;
+        }
+    }
+    else
+    {
+        switch(keysym->sym)
+        {
+        case SDLK_q:
+        case SDLK_w:
+        case SDLK_e:
+        case SDLK_r:
+        case SDLK_t:
+        case SDLK_y:
+        case SDLK_u:
+        case SDLK_i:
+        case SDLK_o:
+        case SDLK_p:
+        case SDLK_a:
+        case SDLK_s:
+        case SDLK_d:
+        case SDLK_f:
+        case SDLK_g:
+        case SDLK_h:
+        case SDLK_j:
+        case SDLK_k:
+        case SDLK_l:
+        case SDLK_z:
+        case SDLK_x:
+        case SDLK_c:
+        case SDLK_v:
+        case SDLK_b:
+        case SDLK_n:
+        case SDLK_m:
+        case SDLK_BACKSPACE:
+        case SDLK_RETURN:
+        case SDLK_SPACE:
+            c = keys[keysym->sym];
+            break;
 
-	}
-	else
-	{
-		switch(keysym->sym){
-			case SDLK_q://only allow supported keys
-			case SDLK_w:
-			case SDLK_e:
-			case SDLK_r:
-			case SDLK_t:
-			case SDLK_y:
-			case SDLK_u:
-			case SDLK_i:
-			case SDLK_o:
-			case SDLK_p:
-			case SDLK_a:
-			case SDLK_s:
-			case SDLK_d:
-			case SDLK_f:
-			case SDLK_g:
-			case SDLK_h:
-			case SDLK_j:
-			case SDLK_k:
-			case SDLK_l:
-			case SDLK_z:
-			case SDLK_x:
-			case SDLK_c:
-			case SDLK_v:
-			case SDLK_b:
-			case SDLK_n:
-			case SDLK_m:
-			case SDLK_BACKSPACE:
-			case SDLK_RETURN:
-			case SDLK_SPACE:
-				c = keys[keysym->sym];
-//                std::cout << "Got key" << c << std::endl;
-				break;
+        case SDLK_ESCAPE:
+            main_menu();
+            return;
 
-			case SDLK_ESCAPE:
-				main_menu();   // Enter the meta-menu routine
-	             return;
-
-			default://dump all other keys
-				return;
-		}
-		parser.KBDPUT(c);
-	}
+        default:
+            return;
+        }
+        parser.KBDPUT(c);
+    }
 }
+
 
 /*********************************************************
   Member: main_menu
@@ -425,13 +426,19 @@ bool OS_Link::main_menu()
         case SDLK_DOWN:
 	 (row > mainMenu.getMenuSize(col) - 2) ? row = 0 : row++;
          break;
-        case SDLK_LEFT:
+       case SDLK_LEFT:
+         if (NUM_MENU > 1)
+          {
 	 (col < 1) ? col = NUM_MENU - 1 : col--;
 	 row = 0;
+          }
          break;
         case SDLK_RIGHT:
-	 (col > 1) ? col = 0 : col++;
+         if (NUM_MENU > 1)
+          {
+	 (col > NUM_MENU - 2) ? col = 0 : col++;
 	 row = 0;
+          }
 	 break;
         case SDLK_ESCAPE:
          end = true;
@@ -464,339 +471,143 @@ bool OS_Link::main_menu()
 
 bool OS_Link::menu_return(int menu_id, int item, menu Menu)
 {
-switch(menu_id)
+ switch(menu_id)
  {
-  // File Menu
- case FILE_MENU_SWITCH:
- switch(item)
-  {
-  case FILE_MENU_NEW:
-   //New Game
-   scheduler.pause(false);  // Needed so that the game can be paused again later
-
-   if(!game.AUTFLG)
-    {
-    game.hasWon = true;
-    game.demoRestart = false;
-    }
-   return true;
-   break;
-
-  case FILE_MENU_RETURN:
-   //Return
-   return true;
-   break;
-
-  case FILE_MENU_ABORT:
-   //Abort (Restart)
-   scheduler.pause(false);  // Needed so that the game can be paused again later
-
-   if(!game.AUTFLG)
-    {
-    game.AUTFLG = true;
-    game.hasWon = true;
-    game.demoRestart = true;
-    }
-   return true;
-   break;
-
-  case FILE_MENU_EXIT:
-   //Exit
-   quitSDL(0);
-  }
-
-  // Configuration Menu
- case CONFIG_MENU_SWITCH:
- switch(item)
-  {
-  case CONFIG_MENU_FULL_SCREEN:
-   //Full Screen
+  case FILE_MENU_SWITCH:
+   switch(item)
    {
-   std::string menuList[]={ "ON", "OFF" };
-
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 2))
+   case FILE_MENU_NEW:
+    scheduler.pause(false);
+    if(!game.AUTFLG)
     {
-    case 0:
-      if(!FullScreen)
-       changeFullScreen();
-      break;
-
-    case 1:
-      if(FullScreen)
-       changeFullScreen();
-      break;
-
-    default:
-      return false;
-      break;
+     game.hasWon = true;
+     game.demoRestart = false;
     }
-   }
-   return false;
-   break;
+    return true;
 
-  case CONFIG_MENU_VIDEO_RES:
-   // Video Res
-   {
-   std::string menuList[]={ "640X480", "800X600", "1024X768", "1280X1024" };
+   case FILE_MENU_RETURN:
+    return true;
 
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 4))
+   case FILE_MENU_GRAPHICS:
     {
-    case 0:
-     changeVideoRes(640);
-     break;
+     std::string menuList[]={ "NORMAL GRAPHICS", "HIRES GRAPHICS", "VECTOR GRAPHICS" };
 
-    case 1:
-     changeVideoRes(800);
-     break;
-
-    case 2:
-     changeVideoRes(1024);
-     break;
-
-    case 3:
-     changeVideoRes(1280);
-     break;
-
-    default:
-     return false;
-     break;
-    }
-   }
-   return false;
-   break;
-
-  case CONFIG_MENU_GRAPHICS:
-    // Graphics (Normal /HIRes / vect)
-   {
-   std::string menuList[]={ "NORMAL GRAPHICS", "HIRES GRAPHICS", "VECTOR GRAPHICS" };
-
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 3))
-    {
-    case 0:
-     g_options &= ~(OPT_VECTOR|OPT_HIRES);
-     break;
-
-    case 1:
-     g_options &= ~(OPT_VECTOR);
-     g_options |= OPT_HIRES;
-     break;
-
-    case 2:
-     g_options &= ~(OPT_HIRES);
-     g_options |= OPT_VECTOR;
-     break;
-
-    default:
-     return false;
-     break;
-    }
-   }
-   return true;
-   break;
-
-  case CONFIG_MENU_COLOR:
-   // Color (B&W / Art. / Full)
-   {
-   std::string menuList[]={ "BLACK WHITE" };
-
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 1))
-    {
-    default:
-     return false;
-     break;
-    }
-   }
-   return true;
-   break;
-
-  case CONFIG_MENU_VOLUME:
-   // Volume
-   {
-   volumeLevel = menu_scrollbar("VOLUME LEVEL", 0, 128, volumeLevel);
-   Mix_Volume(-1, volumeLevel);
-   }
-   return false;
-   break;
-
-  case CONFIG_MENU_SAVEDIR:
-   // Save Dir
-   {
-   std::string menuList[]={ "EDIT OPTS.INI FILE" };
-
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 1))
-    {
-    default:
-     return false;
-     break;
-    }
-   }
-   return false;
-   break;
-
-  case CONFIG_MENU_CREATURE_SPEED:
-    // Creature Speed
-   {
-   std::string menuList[2] = {"COCO", "CUSTOM"};
-
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 2))
-    {
-    case 0:
-     //Coco Speed
-     creature.creSpeedMul = 200;
-     creature.UpdateCreSpeed();
-     break;
-    case 1:
-     //Custom Speed
-     creature.creSpeedMul = menu_scrollbar("CREATURE SPEED", 50, 200, volumeLevel);
-     creature.UpdateCreSpeed();
-     return false;
-     break;
-
-    default:
-     return false;
-     break;
-    }
-   }
-   break;
-
-  case CONFIG_MENU_REGEN_SPEED:
-   // Regen Speed
-   {
-   std::string menuList[] = { "5 MINUTES", "3 MINUTES", "1 MINUTE" };
-
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 3))
+     switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 3))
      {
      case 0:
-      creatureRegen = 5;
-      scheduler.updateCreatureRegen(creatureRegen);
+      g_options &= ~(OPT_VECTOR|OPT_HIRES);
       break;
      case 1:
-      creatureRegen = 3;
-      scheduler.updateCreatureRegen(creatureRegen);
+      g_options &= ~(OPT_VECTOR);
+      g_options |= OPT_HIRES;
       break;
      case 2:
-      creatureRegen = 1;
-      scheduler.updateCreatureRegen(creatureRegen);
+      g_options &= ~(OPT_HIRES);
+      g_options |= OPT_VECTOR;
       break;
      default:
       return false;
-      break;
      }
-   }
-   return true;
-   break;
-
-  case CONFIG_MENU_RANDOM_MAZE:
-   // Random Mazes
-   {
-   std::string menuList[]={ "ON", "OFF" };
-
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 2))
-    {
-	case 0:
-		game.RandomMaze = true;
-		break;
-	case 1:
-		game.RandomMaze = false;
-	    break;
-    default:
-     return false;
-     break;
     }
-   }
-   return false;
-   break;
+    return true;
 
-  case CONFIG_MENU_SND_MODE:
-   // Sound Style (Sync, Stereo)
-   {
-   std::string menuList[2] = {"STEREO", "MONO"};
-
-   switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 2))
+   case FILE_MENU_CREATURE_SPEED:
     {
-    case 0:
-    g_options |= OPT_STEREO;
-    break;
-
-    case 1:
-    g_options &= ~OPT_STEREO;
-    break;
-
-    default:
-    return false;
-    break;
-    }
-   }
-   break;
-
-  case CONFIG_MENU_SAVE_OPT:
-   saveOptFile();
-   return true;
-   break;
-
-  case CONFIG_MENU_DEFAULTS:
-   loadDefaults();
-   changeVideoRes(width);
-   return true;
-   break;
-  }
-
-  // Help menu
- case HELP_MENU_SWITCH:
- switch(item)
-  {
-  case HELP_MENU_HOWTOPLAY:
-   // How to play
-   {
-   std::string menuList[]={ "SEE FILE HOWTOPLAY.TXT" };
-
-   menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 1);
-   }
-   return false;
-   break;
-
-  case HELP_MENU_LICENSE:
-   // License
-   {
-   std::string menuList[]={ "SEE FILE README.TXT" };
-
-   menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 1);
-   }
-   return false;
-   break;
-
-  case HELP_MENU_ABOUT:
-   // About
-   {
-   SDL_Event event;
-
-   viewer.aboutBox();
-   while(true)
-    {
-    while(SDL_PollEvent(&event))
+     int newSpeed = menu_scrollbar("CREATURE SPEED", 50, 300, creature.creSpeedMul);
+     if (newSpeed != creature.creSpeedMul)
      {
-     switch(event.type)
-      {
-      case SDL_KEYDOWN:
-       return false;
-       break;
-      case SDL_QUIT:
-       quitSDL(0);  // Quits SDL
-       break;
-      case SDL_WINDOWEVENT_EXPOSED:
-		SDL_GL_SwapWindow(sdlWindow);
-       break;
-      }
+      creature.creSpeedMul = newSpeed;
+      creature.UpdateCreSpeed();
      }
-     emscripten_sleep(1);
     }
-   return false;
+    return false;
+
+   case FILE_MENU_TURN_DELAY:
+    {
+     int newDelay = menu_scrollbar("TURN DELAY", 10, 200, player.turnDelay);
+     player.turnDelay = newDelay;
+    }
+    return false;
+
+   case FILE_MENU_MOVE_DELAY:
+    {
+     int newDelay = menu_scrollbar("MOVE DELAY", 100, 1000, player.moveDelay);
+     player.moveDelay = newDelay;
+    }
+    return false;
+
+   case FILE_MENU_CREATURE_REGEN:
+    {
+     int newRegen = menu_scrollbar("CREATURE REGEN (MIN)", 1, 10, creatureRegen);
+     if (newRegen != creatureRegen)
+     {
+      creatureRegen = newRegen;
+      scheduler.updateCreatureRegen(creatureRegen);
+     }
+    }
+    return false;
+
+   case FILE_MENU_VOLUME:
+    {
+     volumeLevel = menu_scrollbar("VOLUME LEVEL", 0, 128, volumeLevel);
+     Mix_Volume(-1, volumeLevel);
+    }
+    return false;
+
+   case FILE_MENU_RANDOM_MAZE:
+    {
+     std::string menuList[]={ "ON", "OFF" };
+     switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 2))
+     {
+     case 0:
+      game.RandomMaze = true;
+      break;
+     case 1:
+      game.RandomMaze = false;
+      break;
+     default:
+      return false;
+     }
+    }
+    return false;
+
+   case FILE_MENU_SND_MODE:
+    {
+     std::string menuList[2] = {"STEREO", "MONO"};
+     switch(menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item), menuList, 2))
+     {
+     case 0:
+      g_options |= OPT_STEREO;
+      break;
+     case 1:
+      g_options &= ~OPT_STEREO;
+      break;
+     default:
+      return false;
+     }
+    }
+    return false;
+
+   case FILE_MENU_SAVE_OPT:
+    saveOptFile();
+    return true;
+
+   case FILE_MENU_DEFAULTS:
+    loadDefaults();
+    changeVideoRes(width);
+    return true;
+
+   default:
+    break;
    }
    break;
-  }
+
+  default:
+   break;
  }
  return true;
 }
+
 
 /*****************************************************************************
 *  Function used to draw a list, move among that list, and return the item selected
@@ -872,14 +683,17 @@ int OS_Link::menu_list(int x, int y, char *title, std::string list[], int listSi
 int OS_Link::menu_scrollbar(std::string title, int min, int max, int current)
  {
  int oldvalue  = current; //Save the old value in case the user escapes
- int increment = (max - min) / 31;  // 31 is the number of columns
+ int range = max - min;
+ if (range <= 0)
+   {
+   return current;
+   }
 
-   // Calculate a relative max and min and corresponding current number
- int newMax    = increment * 31;
- int newMin    = 0;
-     current   = current - min;
+int position = static_cast<int>(std::round((static_cast<double>(current - min) * 31.0) / static_cast<double>(range)));
+position = std::max(0, std::min(31, position));
+ int originalPosition = position;
 
- viewer.drawMenuScrollbar(title, (current - newMin) / increment);
+ viewer.drawMenuScrollbar(title, position);
 
  while(true)
    {
@@ -893,25 +707,33 @@ int OS_Link::menu_scrollbar(std::string title, int min, int max, int current)
        switch(event.key.keysym.sym)
         {
         case SDLK_RETURN:
-         return(current + min);  // Readjust back to absolute value
+         {
+         if (position == originalPosition)
+           {
+           return oldvalue;
+           }
+         int result = static_cast<int>(std::round(static_cast<double>(min) + (static_cast<double>(position) * static_cast<double>(range) / 31.0)));
+         result = std::max(min, std::min(max, result));
+         return result;
+         }
          break;
 
-        case SDLK_LEFT:
-	 (current > newMin) ? current -= increment : current = newMin;
+      case SDLK_LEFT:
+	 position = (position > 0) ? position - 1 : 0;
          break;
 
-        case SDLK_RIGHT:
-	 (current < newMax) ? current += increment : current = newMax;
+      case SDLK_RIGHT:
+	 position = (position < 31) ? position + 1 : 31;
          break;
 
-        case SDLK_ESCAPE:
+      case SDLK_ESCAPE:
 	 return(oldvalue);
 	 break;
 
         default:
 	 break;
 	}
-       viewer.drawMenuScrollbar(title, (current - newMin) / increment);
+       viewer.drawMenuScrollbar(title, position);
        break;
       case SDL_QUIT:
        quitSDL(0);

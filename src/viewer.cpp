@@ -23,6 +23,7 @@ is held by Douglas J. Morgan.
 #include "dungeon.h"
 #include "creature.h"
 #include "enhanced.h"
+#include "dodgame.h"
 #include <string>
 
 
@@ -34,6 +35,7 @@ extern Coordinate	crd;
 extern OS_Link		oslink;
 extern Player		player;
 extern Scheduler	scheduler;
+extern dodGame		game;
 
 // Constructor
 Viewer::Viewer() : VCNTRX(128), VCNTRY(76),
@@ -2189,7 +2191,54 @@ void Viewer::drawMenu(menu mainMenu, int menu_id, int highlight)
    {
    x = menu_id * 5;
    y = i + 2;
-   length = strlen(mainMenu.getMenuItem(menu_id, i));
+
+   std::string displayText = mainMenu.getMenuItem(menu_id, i);
+     switch(i)
+       {
+       case FILE_MENU_GRAPHICS:
+        displayText += ": ";
+        if (g_options & OPT_VECTOR)
+          displayText += "VECTOR";
+        else if (g_options & OPT_HIRES)
+          displayText += "HIRES";
+        else
+          displayText += "NORMAL";
+        break;
+
+       case FILE_MENU_CREATURE_SPEED:
+        displayText += ": " + std::to_string(creature.creSpeedMul) + "%";
+        break;
+
+       case FILE_MENU_TURN_DELAY:
+        displayText += ": " + std::to_string(player.turnDelay) + " MS";
+        break;
+
+       case FILE_MENU_MOVE_DELAY:
+        displayText += ": " + std::to_string(player.moveDelay) + " MS";
+        break;
+
+       case FILE_MENU_CREATURE_REGEN:
+        displayText += ": " + std::to_string(oslink.creatureRegen) + " MIN";
+        break;
+
+       case FILE_MENU_VOLUME:
+        displayText += ": " + std::to_string(oslink.volumeLevel);
+        break;
+
+       case FILE_MENU_RANDOM_MAZE:
+        displayText += ": ";
+        displayText += game.RandomMaze ? "ON" : "OFF";
+        break;
+
+       case FILE_MENU_SND_MODE:
+        displayText += ": ";
+        displayText += (g_options & OPT_STEREO) ? "STEREO" : "MONO";
+        break;
+
+       default:
+        break;
+       }
+   int length = static_cast<int>(displayText.length());
 
    if(i == highlight)
      {
@@ -2203,8 +2252,7 @@ void Viewer::drawMenu(menu mainMenu, int menu_id, int highlight)
      glEnd();
      glColor3fv(bgColor);
      }
-
-   drawString(x, y, mainMenu.getMenuItem(menu_id, i));
+   drawString(x, y, displayText.c_str());
    glColor3fv(fgColor);
    }
 

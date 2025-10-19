@@ -512,37 +512,24 @@ namespace Utils{
 
   Note: implementation of commands is at OS_Link::menu_return
 *******************************************************************/
-#define NUM_MENU   3
-#define NUM_FILE   4
-#define NUM_CONFIG 12
-#define NUM_HELP   3
+#define NUM_MENU   1
+#define NUM_FILE   12
 #define NUM_LENGTH 35
 
 #define FILE_MENU_SWITCH   0
-#define CONFIG_MENU_SWITCH 1
-#define HELP_MENU_SWITCH   2
 
-#define FILE_MENU_NEW    0
-#define FILE_MENU_RETURN 1
-#define FILE_MENU_ABORT  2
-#define FILE_MENU_EXIT   3
-
-#define CONFIG_MENU_FULL_SCREEN    0
-#define CONFIG_MENU_VIDEO_RES      1
-#define CONFIG_MENU_GRAPHICS       2
-#define CONFIG_MENU_COLOR          3
-#define CONFIG_MENU_VOLUME         4
-#define CONFIG_MENU_SAVEDIR        5
-#define CONFIG_MENU_CREATURE_SPEED 6
-#define CONFIG_MENU_REGEN_SPEED    7
-#define CONFIG_MENU_RANDOM_MAZE    8
-#define CONFIG_MENU_SND_MODE       9
-#define CONFIG_MENU_SAVE_OPT      10
-#define CONFIG_MENU_DEFAULTS      11
-
-#define HELP_MENU_HOWTOPLAY 0
-#define HELP_MENU_LICENSE   1
-#define HELP_MENU_ABOUT     2
+#define FILE_MENU_NEW            0
+#define FILE_MENU_RETURN         1
+#define FILE_MENU_GRAPHICS       2
+#define FILE_MENU_CREATURE_SPEED 3
+#define FILE_MENU_TURN_DELAY     4
+#define FILE_MENU_MOVE_DELAY     5
+#define FILE_MENU_CREATURE_REGEN 6
+#define FILE_MENU_VOLUME         7
+#define FILE_MENU_RANDOM_MAZE    8
+#define FILE_MENU_SND_MODE       9
+#define FILE_MENU_SAVE_OPT      10
+#define FILE_MENU_DEFAULTS      11
 
 class menu
 {
@@ -550,70 +537,40 @@ private:
 	char MENU_NAME[NUM_MENU][NUM_LENGTH];
 	int MENU_SIZE[NUM_MENU];
 	char FILE_MENU[NUM_FILE][NUM_LENGTH];
-	char CONFIG[NUM_CONFIG][NUM_LENGTH];
-	char HELP[NUM_HELP][NUM_LENGTH];
 
 public:
 
 	 // Constructor -- initalizes strings
 	menu()
 	 {
-	 strncpy(&MENU_NAME[FILE_MENU_SWITCH][0], "FILE", NUM_LENGTH);
-	 strncpy(&MENU_NAME[CONFIG_MENU_SWITCH][0], "CONFIGURE", NUM_LENGTH);
-	 strncpy(&MENU_NAME[HELP_MENU_SWITCH][0], "HELP", NUM_LENGTH);
+	 strncpy(&MENU_NAME[FILE_MENU_SWITCH][0], "CONFIG", NUM_LENGTH);
 
 	 MENU_SIZE[0] = NUM_FILE;
-	 MENU_SIZE[1] = NUM_CONFIG;
-	 MENU_SIZE[2] = NUM_HELP;
 
 	 strncpy(&FILE_MENU[FILE_MENU_NEW][0], "START NEW GAME", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_RETURN][0], "RETURN TO GAME", NUM_LENGTH);
-	 strncpy(&FILE_MENU[FILE_MENU_ABORT][0], "ABORT GAME", NUM_LENGTH);
-	 strncpy(&FILE_MENU[FILE_MENU_EXIT][0], "EXIT", NUM_LENGTH);
-
-	 strncpy(&CONFIG[CONFIG_MENU_FULL_SCREEN][0], "FULL SCREEN", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_VIDEO_RES][0], "VIDEO RESOLUTION", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_GRAPHICS][0], "GRAPHICS MODE", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_COLOR][0], "COLOR MODE", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_VOLUME][0], "SOUND VOLUME", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_SAVEDIR][0], "SAVE DIRECTORY", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_CREATURE_SPEED][0], "CREATURE SPEED", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_REGEN_SPEED][0], "REGEN SPEED", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_RANDOM_MAZE][0], "RANDOM MAZES", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_SND_MODE][0], "SOUND MODES", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_SAVE_OPT][0], "SAVE CURRENT OPTIONS", NUM_LENGTH);
-	 strncpy(&CONFIG[CONFIG_MENU_DEFAULTS][0], "RESTORE DEFAULTS", NUM_LENGTH);
-
-	 strncpy(&HELP[HELP_MENU_HOWTOPLAY][0], "HOW TO PLAY", NUM_LENGTH);
-	 strncpy(&HELP[HELP_MENU_LICENSE][0], "LICENSE", NUM_LENGTH);
-	 strncpy(&HELP[HELP_MENU_ABOUT][0], "ABOUT DOD", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_GRAPHICS][0], "GRAPHICS MODE", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_CREATURE_SPEED][0], "CREATURE SPEED", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_TURN_DELAY][0], "TURN DELAY", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_MOVE_DELAY][0], "MOVE DELAY", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_CREATURE_REGEN][0], "CREATURE REGEN", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_VOLUME][0], "SOUND VOLUME", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_RANDOM_MAZE][0], "RANDOM MAZES", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_SND_MODE][0], "SOUND MODES", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_SAVE_OPT][0], "SAVE CURRENT OPTIONS", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_DEFAULTS][0], "RESTORE DEFAULTS", NUM_LENGTH);
 	 }
 
-	 // Retrieves the menu name based on an id
 	char *getMenuName(int menu_id)
 	 {
 	 return &MENU_NAME[menu_id][0];
 	 }
 
-	 // Retrieves the menu item specified
 	char *getMenuItem(int menu_id, int item)
 	 {
-	 switch(menu_id)
-	  {
-	  case FILE_MENU_SWITCH:
-	   return &FILE_MENU[item][0];
-	   break;
-          case CONFIG_MENU_SWITCH:
-	   return &CONFIG[item][0];
-	   break;
-          case HELP_MENU_SWITCH:
-	   return &HELP[item][0];
-	   break;
-          }
-	 return NULL;
+	 return &FILE_MENU[item][0];
 	 }
 
-	 // Returns the size of the specified menu
 	int getMenuSize(int menu_id)
 	 {
 	 return MENU_SIZE[menu_id];

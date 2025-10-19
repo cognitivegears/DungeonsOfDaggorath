@@ -67,14 +67,19 @@ void Creature::Reset()
 	else  //Do we need to replace a snake with a blob w/ a vision scroll?  No:
 		Utils::LoadFromDecDigit(CMXLND, "994200000000240666000000000406840010000000866400222222244801");
 	Utils::LoadFromDecDigit(MOVTAB, "0310130");
+
+	for (int idx = 0; idx < CTYPES; ++idx)
+	{
+		baseCDB[idx] = CDBTAB[idx];
+	}
 }
 
 void Creature::UpdateCreSpeed()
 {
-	for (int ccc = 0; ccc < 12; ++ccc)
+	for (int ccc = 0; ccc < CTYPES; ++ccc)
 	{
-		CDBTAB[ccc].P_CDTMV = ((int)((float)CDBTAB[ccc].P_CDTMV*(float)creSpeedMul/100.0));
-		CDBTAB[ccc].P_CDTAT = ((int)((float)CDBTAB[ccc].P_CDTAT*(float)creSpeedMul/100.0));
+		CDBTAB[ccc].P_CDTMV = static_cast<int>(static_cast<double>(baseCDB[ccc].P_CDTMV) * static_cast<double>(creSpeedMul) / 100.0);
+		CDBTAB[ccc].P_CDTAT = static_cast<int>(static_cast<double>(baseCDB[ccc].P_CDTAT) * static_cast<double>(creSpeedMul) / 100.0);
 	}
 }
 

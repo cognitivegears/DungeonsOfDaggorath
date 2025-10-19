@@ -71,6 +71,7 @@ private:
 
 	// Data Fields
 	CDB			CDBTAB[12];
+	CDB			baseCDB[12];
 	
 	// Constants
 	enum {
