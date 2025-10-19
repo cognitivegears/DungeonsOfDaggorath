@@ -628,18 +628,29 @@ void Player::PATTK()
 	// make sound for appropriate object
 	Mix_PlayChannel(object.objChannel,
 		object.objSound[U->obj_type], 0);
-	while (Mix_Playing(object.objChannel) == 1)
-	{
+	auto waitPump = [&]() -> bool {
 		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
 		{
 			scheduler.CLOCK();
 			if (game.AUTFLG && game.demoRestart == false)
 			{
-				return;
+				return false;
 			}
 		}
-        emscripten_sleep(1);
 		scheduler.curTime = SDL_GetTicks();
+		return true;
+	};
+	auto clockOnlyPump = [&]() -> bool {
+		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
+		{
+			scheduler.CLOCK();
+		}
+		scheduler.curTime = SDL_GetTicks();
+		return true;
+	};
+	if (!scheduler.WaitForChannel(object.objChannel, waitPump))
+	{
+		return;
 	}
 
 	if (U->obj_id >= Object::OBJ_RING_ENERGY && U->obj_id <= Object::OBJ_RING_FIRE)
@@ -681,18 +692,9 @@ void Player::PATTK()
 
 	// make KLINK sound
 	Mix_PlayChannel(object.objChannel, klink, 0);
-	while (Mix_Playing(object.objChannel) == 1)
+	if (!scheduler.WaitForChannel(object.objChannel, waitPump))
 	{
-		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-		{
-			scheduler.CLOCK();
-			if (game.AUTFLG && game.demoRestart == false)
-			{
-				return;
-			}
-		}
-        emscripten_sleep(1);
-		scheduler.curTime = SDL_GetTicks();
+		return;
 	}
 
 	viewer.OUTSTI(viewer.exps);
@@ -724,18 +726,9 @@ void Player::PATTK()
 
 	// do loud explosion sound
 	Mix_PlayChannel(object.objChannel, bang, 0);
-	while (Mix_Playing(object.objChannel) == 1)
+	if (!scheduler.WaitForChannel(object.objChannel, waitPump))
 	{
-		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-		{
-			scheduler.CLOCK();
-			if (game.AUTFLG && game.demoRestart == false)
-			{
-				return;
-			}
-		}
-        emscripten_sleep(1);
-		scheduler.curTime = SDL_GetTicks();
+		return;
 	}
 
 	PPOW += (creature.CCBLND[cidx].P_CCPOW >> 3);
@@ -1142,15 +1135,15 @@ void Player::PINCAN()
 				// make ring sound
 				Mix_PlayChannel(object.objChannel,
 					object.objSound[object.OCBLND[PLHAND].obj_type], 0);
-				while (Mix_Playing(object.objChannel) == 1)
-				{
+				auto ringPump = [&]() -> bool {
 					if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
 					{
 						scheduler.CLOCK();
 					}
-                    emscripten_sleep(1);
 					scheduler.curTime = SDL_GetTicks();
-				}
+					return true;
+				};
+				scheduler.WaitForChannel(object.objChannel, ringPump);
 
 				viewer.STATUS();
 				viewer.PUPDAT();
@@ -1194,15 +1187,14 @@ void Player::PINCAN()
 				// make ring sound
 				Mix_PlayChannel(object.objChannel,
 					object.objSound[object.OCBLND[PRHAND].obj_type], 0);
-				while (Mix_Playing(object.objChannel) == 1)
-				{
+				scheduler.WaitForChannel(object.objChannel, [&]() -> bool {
 					if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
 					{
 						scheduler.CLOCK();
 					}
-                    emscripten_sleep(1);
 					scheduler.curTime = SDL_GetTicks();
-				}
+					return true;
+				});
 
 				viewer.STATUS();
 				viewer.PUPDAT();
@@ -1716,6 +1708,15 @@ void Player::PUSE()
 		idx = PRHAND;
 	}
 
+	auto pumpClock = [&]() -> bool {
+		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
+		{
+			scheduler.CLOCK();
+		}
+		scheduler.curTime = SDL_GetTicks();
+		return true;
+	};
+
 	if (object.OCBLND[idx].obj_type  == Object::OBJT_TORCH)
 	{
 		PTORCH = idx;
@@ -1737,15 +1738,7 @@ void Player::PUSE()
 		// make torch sound
 		Mix_PlayChannel(object.objChannel,
 			object.objSound[object.OCBLND[idx].obj_type], 0);
-		while (Mix_Playing(object.objChannel) == 1)
-		{
-			if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-			{
-				scheduler.CLOCK();
-			}
-            emscripten_sleep(1);
-			scheduler.curTime = SDL_GetTicks();
-		}
+		scheduler.WaitForChannel(object.objChannel, pumpClock);
 
 		viewer.PUPDAT();
 		return;
@@ -1759,15 +1752,7 @@ void Player::PUSE()
 		// make flask sound
 		Mix_PlayChannel(object.objChannel,
 			object.objSound[object.OCBLND[idx].obj_type], 0);
-		while (Mix_Playing(object.objChannel) == 1)
-		{
-			if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-			{
-				scheduler.CLOCK();
-			}
-            emscripten_sleep(1);
-			scheduler.curTime = SDL_GetTicks();
-		}
+		scheduler.WaitForChannel(object.objChannel, pumpClock);
 
 		viewer.STATUS();
 		HUPDAT();
@@ -1781,15 +1766,7 @@ void Player::PUSE()
 		// make flask sound
 		Mix_PlayChannel(object.objChannel,
 			object.objSound[object.OCBLND[idx].obj_type], 0);
-		while (Mix_Playing(object.objChannel) == 1)
-		{
-			if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-			{
-				scheduler.CLOCK();
-			}
-            emscripten_sleep(1);
-			scheduler.curTime = SDL_GetTicks();
-		}
+		scheduler.WaitForChannel(object.objChannel, pumpClock);
 
 		viewer.STATUS();
 		HUPDAT();
@@ -1805,15 +1782,7 @@ void Player::PUSE()
 		// make flask sound
 		Mix_PlayChannel(object.objChannel,
 			object.objSound[object.OCBLND[idx].obj_type], 0);
-		while (Mix_Playing(object.objChannel) == 1)
-		{
-			if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-			{
-				scheduler.CLOCK();
-			}
-            emscripten_sleep(1);
-			scheduler.curTime = SDL_GetTicks();
-		}
+		scheduler.WaitForChannel(object.objChannel, pumpClock);
 
 		viewer.STATUS();
 		HUPDAT();
@@ -1829,15 +1798,7 @@ void Player::PUSE()
 		// make scroll sound
 		Mix_PlayChannel(object.objChannel,
 			object.objSound[object.OCBLND[idx].obj_type], 0);
-		while (Mix_Playing(object.objChannel) == 1)
-		{
-			if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-			{
-				scheduler.CLOCK();
-			}
-            emscripten_sleep(1);
-			scheduler.curTime = SDL_GetTicks();
-		}
+		scheduler.WaitForChannel(object.objChannel, pumpClock);
 
 		HEARTF = 0;
 		viewer.display_mode = Viewer::MODE_MAP;
@@ -1855,15 +1816,7 @@ void Player::PUSE()
 		// make scroll sound
 		Mix_PlayChannel(object.objChannel,
 			object.objSound[object.OCBLND[idx].obj_type], 0);
-		while (Mix_Playing(object.objChannel) == 1)
-		{
-			if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-			{
-				scheduler.CLOCK();
-			}
-            emscripten_sleep(1);
-			scheduler.curTime = SDL_GetTicks();
-		}
+		scheduler.WaitForChannel(object.objChannel, pumpClock);
 
 		HEARTF = 0;
 		viewer.display_mode = Viewer::MODE_MAP;
@@ -1944,6 +1897,14 @@ void Player::PZSAVE()
 bool Player::PSTEP(dodBYTE dir)
 {
 	dodBYTE B;
+	auto pumpClock = [&]() -> bool {
+		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
+		{
+			scheduler.CLOCK();
+		}
+		scheduler.curTime = SDL_GetTicks();
+		return true;
+	};
 	B = dir + PDIR;
 	B &= 3;
 	if (dungeon.STEPOK(PROW, PCOL, B))
@@ -1956,15 +1917,7 @@ bool Player::PSTEP(dodBYTE dir)
 	{
 		// do thud sound
 		Mix_PlayChannel(object.objChannel, thud, 0);
-		while (Mix_Playing(object.objChannel) == 1)
-		{
-			if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-			{
-				scheduler.CLOCK();
-			}
-            emscripten_sleep(1);
-			scheduler.curTime = SDL_GetTicks();
-		}
+		scheduler.WaitForChannel(object.objChannel, pumpClock);
 
 		return false;
 	}

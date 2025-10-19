@@ -16,6 +16,7 @@ is held by Douglas J. Morgan.
 
 #include <iostream>
 #include <fstream>
+#include <SDL2/SDL_mutex.h>
 
 using namespace std;
 
@@ -38,6 +39,146 @@ extern Creature	creature;
 extern Player	player;
 extern Viewer	viewer;
 extern OS_Link	oslink;
+
+Scheduler* Scheduler::instance = nullptr;
+
+void Scheduler::ChannelFinishedThunk(int channel)
+{
+	if (instance != nullptr)
+	{
+		instance->OnChannelFinished(channel);
+	}
+}
+
+void Scheduler::ConfigureChannelSync(int channelCount)
+{
+	instance = this;
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
+	if (channelMutex == nullptr)
+	{
+		channelMutex = SDL_CreateMutex();
+	}
+	SDL_LockMutex(channelMutex);
+	channelSemaphores.assign(channelCount, nullptr);
+	SDL_UnlockMutex(channelMutex);
+#endif
+	Mix_ChannelFinished(ChannelFinishedThunk);
+}
+
+bool Scheduler::WaitForChannel(int channel, const WaitPump& pump)
+{
+	auto pumpOnce = [&]() -> bool {
+		if (pump)
+		{
+			return pump();
+		}
+		return true;
+	};
+
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+	while (Mix_Playing(channel) == 1)
+	{
+		if (!pumpOnce())
+		{
+			return false;
+		}
+		emscripten_sleep(1);
+	}
+	return true;
+#else
+	SDL_sem* sem = GetChannelSemaphore(channel);
+	while (Mix_Playing(channel) == 1)
+	{
+		if (!pumpOnce())
+		{
+			return false;
+		}
+		if (sem != nullptr)
+		{
+			const int waitResult = SDL_SemWaitTimeout(sem, 10);
+			if (waitResult == 0)
+			{
+				continue;
+			}
+			if (waitResult == SDL_MUTEX_TIMEDOUT)
+			{
+				continue;
+			}
+			if (waitResult < 0)
+			{
+				break;
+			}
+		}
+		else
+		{
+			SDL_Delay(1);
+		}
+	}
+	if (sem != nullptr)
+	{
+		while (SDL_SemTryWait(sem) == 0)
+		{
+			// drain semaphore
+		}
+	}
+	return true;
+#endif
+}
+
+SDL_sem* Scheduler::GetChannelSemaphore(int channel)
+{
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+	(void)channel;
+	return nullptr;
+#else
+	if (channel < 0)
+	{
+		return nullptr;
+	}
+	if (channelMutex == nullptr)
+	{
+		channelMutex = SDL_CreateMutex();
+	}
+	SDL_LockMutex(channelMutex);
+	if (channel >= static_cast<int>(channelSemaphores.size()))
+	{
+		channelSemaphores.resize(channel + 1, nullptr);
+	}
+	if (channelSemaphores[channel] == nullptr)
+	{
+		channelSemaphores[channel] = SDL_CreateSemaphore(0);
+	}
+	SDL_sem* sem = channelSemaphores[channel];
+	SDL_UnlockMutex(channelMutex);
+	return sem;
+#endif
+}
+
+void Scheduler::OnChannelFinished(int channel)
+{
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
+	if (channel < 0)
+	{
+		return;
+	}
+	if (channelMutex == nullptr)
+	{
+		return;
+	}
+	SDL_LockMutex(channelMutex);
+	if (channel < static_cast<int>(channelSemaphores.size()))
+	{
+		SDL_sem* sem = channelSemaphores[channel];
+		if (sem != nullptr)
+		{
+			SDL_SemPost(sem);
+		}
+	}
+	SDL_UnlockMutex(channelMutex);
+#else
+	(void)channel;
+#endif
+}
 
 // Constructor
 Scheduler::Scheduler()
@@ -233,8 +374,8 @@ void Scheduler::CLOCK()
 				player.HEARTC = player.HEARTR;
 
 				// make sound
-				Mix_PlayChannel(hrtChannel, hrtSound[(dodBYTE) (player.HEARTS + 1)], 0);
-				while (Mix_Playing(hrtChannel) == 1) {emscripten_sleep(1);}; // !!!
+					Mix_PlayChannel(hrtChannel, hrtSound[(dodBYTE) (player.HEARTS + 1)], 0);
+					WaitForChannel(hrtChannel);
 
 				if (player.HEARTF != 0)
 				{

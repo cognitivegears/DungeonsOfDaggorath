@@ -18,6 +18,8 @@ is held by Douglas J. Morgan.
 #define DOD_SCHEDULER_HEADER
 
 #include "dod.h"
+#include <functional>
+#include <vector>
 
 class Scheduler
 {
@@ -47,6 +49,10 @@ public:
 	bool		EscHandler(SDL_Keysym * keysym);
 	void		pause(bool state);
 	void		updateCreatureRegen(int newTime);
+	void        ConfigureChannelSync(int channelCount);
+
+	using WaitPump = std::function<bool()>;
+	bool        WaitForChannel(int channel, const WaitPump& pump = WaitPump());
 	
 	// Public Data Fields
 	Task	TCBLND[38];
@@ -83,6 +89,16 @@ private:
 	dodBYTE		NOISEV;
 
     int schedCtr = 0;
+
+	static Scheduler* instance;
+
+private:
+	void        OnChannelFinished(int channel);
+	SDL_sem*    GetChannelSemaphore(int channel);
+	static void ChannelFinishedThunk(int channel);
+
+	std::vector<SDL_sem*> channelSemaphores;
+	SDL_mutex*  channelMutex = nullptr;
 };
 
 #endif // DOD_SCHEDULER_HEADER

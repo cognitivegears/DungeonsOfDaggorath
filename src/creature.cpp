@@ -310,6 +310,27 @@ int Creature::CMOVE(int task, int cidx)
 	dodBYTE shA, shB;
 	dodSHORT shD, shD2;
 
+	auto pumpWithAuto = [&]() -> bool {
+		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
+		{
+			scheduler.CLOCK();
+			if (game.AUTFLG && game.demoRestart == false)
+			{
+				return false;
+			}
+		}
+		scheduler.curTime = SDL_GetTicks();
+		return true;
+	};
+	auto pumpNoAuto = [&]() -> bool {
+		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
+		{
+			scheduler.CLOCK();
+		}
+		scheduler.curTime = SDL_GetTicks();
+		return true;
+	};
+
 	if (FRZFLG == 0)
 	{
 		// ignore dead creatures
@@ -362,18 +383,9 @@ int Creature::CMOVE(int task, int cidx)
 		{
 			// do creature sound
 			Mix_PlayChannel(creChannel, creSound[CCBLND[cidx].creature_id], 0);
-			while (Mix_Playing(creChannel) == 1)
+			if (!scheduler.WaitForChannel(creChannel, pumpWithAuto))
 			{
-				if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-				{
-					scheduler.CLOCK();
-					if (game.AUTFLG && game.demoRestart == false)
-					{
-						return 0;
-					}
-				}
-                emscripten_sleep(1);
-				scheduler.curTime = SDL_GetTicks();
+				return 0;
 			}
 
 			// set player shielding parameters
@@ -415,18 +427,9 @@ int Creature::CMOVE(int task, int cidx)
 				{
 					// make CLANK sound
 					Mix_PlayChannel(creChannel, clank, 0);
-					while (Mix_Playing(creChannel) == 1)
+					if (!scheduler.WaitForChannel(creChannel, pumpWithAuto))
 					{
-						if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-						{
-							scheduler.CLOCK();
-							if (game.AUTFLG && game.demoRestart == false)
-							{
-								return 0;
-							}
-						}
-                        emscripten_sleep(1);
-						scheduler.curTime = SDL_GetTicks();
+						return 0;
 					}
 
 					player.DAMAGE(CCBLND[cidx].P_CCPOW, CCBLND[cidx].P_CCMGO,
@@ -599,6 +602,14 @@ int Creature::CMOVE(int task, int cidx)
 bool Creature::CWALK(dodBYTE dir, CCB * cr)
 {
 	dodBYTE DIR, r, c, rr, cc, big, small;
+	auto walkerPump = [&]() -> bool {
+		if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
+		{
+			scheduler.CLOCK();
+		}
+		scheduler.curTime = SDL_GetTicks();
+		return true;
+	};
 
 	dir += cr->P_CCDIR;
 	dir &= 3;
@@ -724,15 +735,7 @@ bool Creature::CWALK(dodBYTE dir, CCB * cr)
 
 			Mix_Volume(creChannelv, (MIX_MAX_VOLUME / 8) * (9 - big) );
 			Mix_PlayChannel(creChannelv, creSound[cr->creature_id], 0);
-			while (Mix_Playing(creChannelv) == 1)
-			{
-				if (scheduler.curTime >= scheduler.TCBLND[0].next_time)
-				{
-					scheduler.CLOCK();
-				}
-                emscripten_sleep(1);
-				scheduler.curTime = SDL_GetTicks();
-			}
+			scheduler.WaitForChannel(creChannelv, walkerPump);
 		}
 
 		cr->P_CCROW = rr;

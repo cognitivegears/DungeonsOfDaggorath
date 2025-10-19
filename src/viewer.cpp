@@ -529,19 +529,19 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 	Mix_Volume(fadChannel, oslink.volumeLevel);
 	Mix_PlayChannel(fadChannel, creature.kaboom, 0);
 //    std::cout << "after playchannel" << std::endl;
-	while (Mix_Playing(fadChannel) == 1)
-	{
+	if (!scheduler.WaitForChannel(fadChannel, [&]() -> bool {
 		if (fadeMode == 1 && scheduler.keyCheck())
 		{
-//    std::cout << "in keycheck" << std::endl;
 			Mix_HaltChannel(fadChannel);
 			clearArea(&TXTPRI);
-			while(SDL_PollEvent(&event)) 
-                ; // clear event buffer
-//    std::cout << "before return" << std::endl;
+			while(SDL_PollEvent(&event))
+                ;
 			return false;
 		}
-        emscripten_sleep(1);
+		return true;
+	}))
+	{
+		return false;
 	}
 
 //    std::cout << "after while in docrash" << std::endl;
@@ -597,17 +597,19 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 
 		// do crash
 		Mix_PlayChannel(fadChannel, creature.kaboom, 0);
-		while (Mix_Playing(fadChannel) == 1)
-		{
+		if (!scheduler.WaitForChannel(fadChannel, [&]() -> bool {
 			if (fadeMode != 2 && scheduler.keyCheck())
 			{
 				Mix_HaltChannel(fadChannel);
 				clearArea(&TXTPRI);
-				while(SDL_PollEvent(&event)) 
-                    ; // clear event buffer
+				while(SDL_PollEvent(&event))
+                    ;
 				return false;
 			}
-            emscripten_sleep(1);
+			return true;
+		}))
+		{
+			return false;
 		}
 
 		// start buzz again
@@ -712,11 +714,7 @@ bool Viewer::draw_fade()
 			Mix_HaltChannel(fadChannel);
 			Mix_Volume(fadChannel, oslink.volumeLevel);
 			Mix_PlayChannel(fadChannel, creature.kaboom, 0);
-			while (Mix_Playing(fadChannel) == 1)
-			{
-				// Call keyboard routine ???
-                emscripten_sleep(1);
-			}
+			scheduler.WaitForChannel(fadChannel);
 
 			VCTFAD = 0;
 			fadeVal = 0;
@@ -741,11 +739,7 @@ bool Viewer::draw_fade()
 		{
 			// do sound crash
 			Mix_PlayChannel(fadChannel, creature.kaboom, 0);
-			while (Mix_Playing(fadChannel) == 1)
-			{
-				// Call keyboard routine ???
-                emscripten_sleep(1);
-			}
+			scheduler.WaitForChannel(fadChannel);
 
 			fadeVal = 2;
 			delay = SDL_GetTicks();
@@ -796,11 +790,7 @@ void Viewer::enough_fade()
 			Mix_HaltChannel(fadChannel);
 			Mix_Volume(fadChannel, oslink.volumeLevel);
 			Mix_PlayChannel(fadChannel, creature.kaboom, 0);
-			while (Mix_Playing(fadChannel) == 1)
-			{
-				// Call keyboard routine ???
-                emscripten_sleep(1);
-			}
+			scheduler.WaitForChannel(fadChannel);
 
 			VCTFAD = 0;
 			fadeVal = 0;
@@ -826,11 +816,7 @@ void Viewer::enough_fade()
 		{
 			// do sound crash
 			Mix_PlayChannel(fadChannel, creature.kaboom, 0);
-			while (Mix_Playing(fadChannel) == 1)
-			{
-				// Call keyboard routine ???
-                emscripten_sleep(1);
-			}
+			scheduler.WaitForChannel(fadChannel);
 
 			fadeVal = 2;
 			delay = SDL_GetTicks();
@@ -873,11 +859,7 @@ void Viewer::death_fade(int WIZ[])
 			drawArea(&TXTPRI);
 			SDL_GL_SwapWindow(oslink.sdlWindow);
 			Mix_PlayChannel(fadChannel, creature.kaboom, 0);
-			while (Mix_Playing(fadChannel) == 1)
-			{
-				// Call keyboard routine ???
-                emscripten_sleep(1);
-			}
+			scheduler.WaitForChannel(fadChannel);
 
 			VCTFAD = 0;
 			fadeVal = 0;

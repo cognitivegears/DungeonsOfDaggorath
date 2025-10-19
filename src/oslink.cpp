@@ -142,7 +142,12 @@ void OS_Link::init()
 	scheduler.LoadSounds();
 	player.LoadSounds();
 
-	Mix_AllocateChannels(4);
+	int allocatedChannels = Mix_AllocateChannels(4);
+	if (allocatedChannels < 0)
+	{
+		allocatedChannels = 0;
+	}
+	scheduler.ConfigureChannelSync(allocatedChannels);
 	Mix_Volume(-1, MIX_MAX_VOLUME);
 	if(FullScreen == 0){
 		sdlWindow = SDL_CreateWindow("DOD", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, (int) (width * 0.75),SDL_WINDOW_OPENGL);
