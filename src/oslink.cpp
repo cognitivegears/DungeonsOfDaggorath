@@ -550,7 +550,7 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu)
    case FILE_MENU_VOLUME:
     {
      volumeLevel = menu_scrollbar("VOLUME LEVEL", 0, 128, volumeLevel);
-     Mix_Volume(-1, volumeLevel);
+     Mix_Volume(-1, static_cast<int>((volumeLevel * MIX_MAX_VOLUME) / 128));
     }
     return false;
 

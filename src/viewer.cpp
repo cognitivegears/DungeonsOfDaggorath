@@ -497,7 +497,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 	for (VCTFAD = 32; (VCTFAD & 128) == 0; VCTFAD -= 2)
 	{
 		// Set volume of buzz
-		Mix_Volume(fadChannel, ((32 - VCTFAD) / 2) * (oslink.volumeLevel / 16) );
+            Mix_Volume(fadChannel, static_cast<int>(((32 - VCTFAD) / 2) * ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
 		glClear(GL_COLOR_BUFFER_BIT);
 		glMatrixMode(GL_MODELVIEW);
@@ -528,7 +528,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 
 	// do crash
 	Mix_HaltChannel(fadChannel);
-	Mix_Volume(fadChannel, oslink.volumeLevel);
+	Mix_Volume(fadChannel, static_cast<int>((oslink.volumeLevel * MIX_MAX_VOLUME) / 128));
 	Mix_PlayChannel(fadChannel, creature.kaboom, 0);
 //    std::cout << "after playchannel" << std::endl;
 	if (!scheduler.WaitForChannel(fadChannel, [&]() -> bool {
@@ -621,7 +621,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 		for (VCTFAD = 0; VCTFAD <= 32; VCTFAD += 2)
 		{
 			// Set volume of buzz
-			Mix_Volume(fadChannel, ((32 - VCTFAD) / 2) * (oslink.volumeLevel / 16) );
+            Mix_Volume(fadChannel, static_cast<int>(((32 - VCTFAD) / 2) * ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
 			glClear(GL_COLOR_BUFFER_BIT);
 			glMatrixMode(GL_MODELVIEW);
@@ -704,7 +704,7 @@ bool Viewer::draw_fade()
 	if ((!done && delay1 > delay + buzzStep) && fadeVal != 0)
 	{
 		// Set volume of buzz
-		Mix_Volume(fadChannel, ((32 - VCTFAD) / 2) * (oslink.volumeLevel / 16) );
+            Mix_Volume(fadChannel, static_cast<int>(((32 - VCTFAD) / 2) * ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
 		glLoadIdentity();
 		drawVectorList(W1_VLA);
@@ -714,7 +714,7 @@ bool Viewer::draw_fade()
 		{
 			// do sound crash
 			Mix_HaltChannel(fadChannel);
-			Mix_Volume(fadChannel, oslink.volumeLevel);
+			Mix_Volume(fadChannel, static_cast<int>((oslink.volumeLevel * MIX_MAX_VOLUME) / 128));
 			Mix_PlayChannel(fadChannel, creature.kaboom, 0);
 			scheduler.WaitForChannel(fadChannel);
 
@@ -776,7 +776,7 @@ void Viewer::enough_fade()
 	if ((!done && delay1 > delay + buzzStep) && fadeVal != 0)
 	{
 		// Set volume of buzz
-		Mix_Volume(fadChannel, ((32 - VCTFAD) / 2) * (oslink.volumeLevel / 16) );
+            Mix_Volume(fadChannel, static_cast<int>(((32 - VCTFAD) / 2) * ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
 		glLoadIdentity();
 		drawVectorList(W1_VLA);
@@ -790,7 +790,7 @@ void Viewer::enough_fade()
 
 			// do sound crash
 			Mix_HaltChannel(fadChannel);
-			Mix_Volume(fadChannel, oslink.volumeLevel);
+			Mix_Volume(fadChannel, static_cast<int>((oslink.volumeLevel * MIX_MAX_VOLUME) / 128));
 			Mix_PlayChannel(fadChannel, creature.kaboom, 0);
 			scheduler.WaitForChannel(fadChannel);
 
@@ -841,7 +841,7 @@ void Viewer::death_fade(int WIZ[])
 	if ((delay1 > delay + buzzStep) && fadeVal != 0)
 	{
 		// Set volume of buzz
-		Mix_Volume(fadChannel, ((32 - VCTFAD) / 2) * (oslink.volumeLevel / 16) );
+            Mix_Volume(fadChannel, static_cast<int>(((32 - VCTFAD) / 2) * ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
 		glClear(GL_COLOR_BUFFER_BIT);
 		glMatrixMode(GL_MODELVIEW);
@@ -856,7 +856,7 @@ void Viewer::death_fade(int WIZ[])
 		{
 			// do sound crash
 			Mix_HaltChannel(fadChannel);
-			Mix_Volume(fadChannel, oslink.volumeLevel);
+			Mix_Volume(fadChannel, static_cast<int>((oslink.volumeLevel * MIX_MAX_VOLUME) / 128));
 			glLoadIdentity();
 			drawArea(&TXTPRI);
 			SDL_GL_SwapWindow(oslink.sdlWindow);

@@ -387,6 +387,10 @@ int Creature::CMOVE(int task, int cidx)
 			CCBLND[cidx].P_CCCOL == player.PCOL)
 		{
 			// do creature sound
+            int volumeScale = oslink.volumeLevel;
+            if (volumeScale < 0) volumeScale = 0;
+            if (volumeScale > 128) volumeScale = 128;
+            Mix_Volume(creChannel, (MIX_MAX_VOLUME * volumeScale) / 128);
 			Mix_PlayChannel(creChannel, creSound[CCBLND[cidx].creature_id], 0);
 			if (!scheduler.WaitForChannel(creChannel, pumpWithAuto))
 			{
@@ -431,6 +435,10 @@ int Creature::CMOVE(int task, int cidx)
 					player.PDAM))
 				{
 					// make CLANK sound
+                    int volumeScale2 = oslink.volumeLevel;
+                    if (volumeScale2 < 0) volumeScale2 = 0;
+                    if (volumeScale2 > 128) volumeScale2 = 128;
+                    Mix_Volume(creChannel, (MIX_MAX_VOLUME * volumeScale2) / 128);
 					Mix_PlayChannel(creChannel, clank, 0);
 					if (!scheduler.WaitForChannel(creChannel, pumpWithAuto))
 					{
@@ -738,8 +746,13 @@ bool Creature::CWALK(dodBYTE dir, CCB * cr)
 				Mix_SetPanning(creChannelv, panl, panr);
 			}
 
-			Mix_Volume(creChannelv, (MIX_MAX_VOLUME / 8) * (9 - big) );
-			Mix_PlayChannel(creChannelv, creSound[cr->creature_id], 0);
+            int volScale = oslink.volumeLevel;
+            if (volScale < 0) volScale = 0;
+            if (volScale > 128) volScale = 128;
+            int baseVol = (MIX_MAX_VOLUME / 8) * (9 - big);
+            int finalVol = (baseVol * volScale) / 128;
+            Mix_Volume(creChannelv, finalVol);
+            Mix_PlayChannel(creChannelv, creSound[cr->creature_id], 0);
 			scheduler.WaitForChannel(creChannelv, walkerPump);
 		}
 
