@@ -74,6 +74,10 @@ extern "C" {
         oslink.stop_demo();
     }
 
+    void triggermenu() {
+        oslink.trigger_menu();
+    }
+
     const char * getinventory() {
         return viewer.getInventory();
     }

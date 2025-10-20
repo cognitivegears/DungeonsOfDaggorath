@@ -8,7 +8,7 @@ ifdef EMSCRIPTEN
 
 ifdef WEBSITE
 OUTPUT  = ../../index.js
-CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
+CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main","_triggermenu"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 else
 OUTPUT  = ../docs/index.html
 CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 --shell-file standalone.html

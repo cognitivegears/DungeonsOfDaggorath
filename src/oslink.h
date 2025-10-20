@@ -46,6 +46,7 @@ public:
 	bool saveOptFile(void);
     void send_input(char * keys); // Send keys from external interfaces
     void stop_demo(); // Stop the demo / start game
+    void trigger_menu(); // Open in-game menu
     void render(void);
 
 	// Public Data Fields

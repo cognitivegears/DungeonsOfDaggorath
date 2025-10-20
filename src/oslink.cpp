@@ -319,6 +319,21 @@ void OS_Link::stop_demo() {
     game.demoRestart = false;
 }
 
+void OS_Link::trigger_menu() {
+    SDL_Event ev = {};
+    ev.type = SDL_KEYDOWN;
+    ev.key.keysym.sym = SDLK_ESCAPE;
+    ev.key.state = SDL_PRESSED;
+    ev.key.repeat = 0;
+    SDL_PushEvent(&ev);
+
+    SDL_Event evUp = {};
+    evUp.type = SDL_KEYUP;
+    evUp.key.keysym.sym = SDLK_ESCAPE;
+    evUp.key.state = SDL_RELEASED;
+    SDL_PushEvent(&evUp);
+}
+
 // Processes key strokes.
 void OS_Link::handle_key_down(SDL_Keysym * keysym)
 {
