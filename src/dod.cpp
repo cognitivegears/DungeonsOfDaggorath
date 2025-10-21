@@ -86,6 +86,10 @@ extern "C" {
         return viewer.getFloor();
     }
 
+    int isdemo() {
+        return game.AUTFLG ? 1 : 0;
+    }
+
 }
 
 void printalpha(int * vl, int len, std::string name)
