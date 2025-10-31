@@ -317,6 +317,20 @@ void OS_Link::send_input(char * keys) {
 void OS_Link::stop_demo() {
     game.hasWon = true;
     game.demoRestart = false;
+
+    SDL_Event ev;
+    ev.type = SDL_KEYDOWN;
+    ev.key.keysym.sym = SDLK_SPACE;
+    ev.key.state = SDL_PRESSED;
+    ev.key.repeat = 0;
+    SDL_PushEvent(&ev);
+
+    SDL_Event evUp;
+    evUp.type = SDL_KEYUP;
+    evUp.key.keysym.sym = SDLK_SPACE;
+    evUp.key.state = SDL_RELEASED;
+    evUp.key.repeat = 0;
+    SDL_PushEvent(&evUp);
 }
 
 void OS_Link::trigger_menu() {
