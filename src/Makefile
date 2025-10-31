@@ -1,5 +1,5 @@
 OBJECTS = creature.o dod.o dodgame.o dungeon.o enhanced.o object.o oslink.o parser.o player.o sched.o viewer.o
-THREAD_POOL_SIZE := 4
+THREAD_POOL_SIZE := 2
 PTHREAD_FLAGS = -pthread -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 -s PTHREAD_POOL_SIZE=$(THREAD_POOL_SIZE) -s OFFSCREENCANVAS_SUPPORT=1
 
 CXXFLAGS = -std=c++11 -c
@@ -8,14 +8,14 @@ ifdef EMSCRIPTEN
 
 ifdef WEBSITE
 OUTPUT  = ../../index.js
-CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main","_triggermenu","_isdemo"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
+CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=0 -s STACK_SIZE=5MB -s INITIAL_MEMORY=134217728 --preload-file ../assets@/ -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -O2 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main","_triggermenu","_isdemo"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 else
 OUTPUT  = ../docs/index.html
-CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 --shell-file standalone.html
+CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=0 -s STACK_SIZE=5MB -s INITIAL_MEMORY=134217728 --preload-file ../assets@/ -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -O2 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 --shell-file standalone.html
 endif
 
 #CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 --shell-file template.html
-CXXFLAGS += $(PTHREAD_FLAGS) -O3 -s USE_SDL=2 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 
+CXXFLAGS += $(PTHREAD_FLAGS) -O3 -s USE_SDL=2 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=0 -s STACK_SIZE=5MB -s INITIAL_MEMORY=134217728 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -O2 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 
 #CXX      = clang++-3.6
 else
 ifeq ($(OS),Windows_NT)
