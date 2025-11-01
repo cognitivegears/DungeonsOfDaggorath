@@ -1,6 +1,6 @@
 OBJECTS = creature.o dod.o dodgame.o dungeon.o enhanced.o object.o oslink.o parser.o player.o sched.o viewer.o
 THREAD_POOL_SIZE := 1
-PTHREAD_FLAGS = -pthread -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 -s PTHREAD_POOL_SIZE=$(THREAD_POOL_SIZE) -s OFFSCREENCANVAS_SUPPORT=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=67108864 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
+PTHREAD_FLAGS = -pthread -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 -s PTHREAD_POOL_SIZE=$(THREAD_POOL_SIZE) -s OFFSCREENCANVAS_SUPPORT=1 -s INITIAL_MEMORY=33554432 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
 
 BUILD_VERSION := $(shell git describe --always --dirty 2>/dev/null)
 ifeq ($(strip $(BUILD_VERSION)),)
@@ -14,8 +14,7 @@ endif
 
 CXXFLAGS = -std=c++11 -c -DBUILD_VERSION=\"$(BUILD_VERSION)\" -DBUILD_TIMESTAMP=\"$(BUILD_TIMESTAMP)\"
 ifdef EMSCRIPTEN
-#CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
-
+#CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
 ifdef WEBSITE
 OUTPUT  = ../../index.js
 CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main","_triggermenu","_isdemo"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
@@ -24,7 +23,7 @@ OUTPUT  = ../docs/index.html
 CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ --shell-file standalone.html
 endif
 
-#CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 --shell-file template.html
+#CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2--preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 --shell-file template.html
 CXXFLAGS += -O2
 #CXX      = clang++-3.6
 else
@@ -82,3 +81,4 @@ clean:
 	$(RM) $(OBJECTS)
 	$(RM) $(OUTPUT)
 	@echo Done
+
