@@ -515,11 +515,11 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 			{
 				Mix_HaltChannel(fadChannel);
 				clearArea(&TXTPRI);
-				while(SDL_PollEvent(&event))
-                    ; // clear event buffer
+				while (SDL_PollEvent(&event))
+					; // clear event buffer
 				return false;
 			}
-        emscripten_sleep(1);
+			SDL_Delay(1);
 		} while (ticks2 < ticks1 + buzzStep);
 	}
 //    std::cout << "after for" << std::endl;
@@ -580,11 +580,11 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 			if (fadeMode != 2 && scheduler.keyCheck())
 			{
 				clearArea(&TXTPRI);
-				while(SDL_PollEvent(&event)) 
-                    ; // clear event buffer
+				while (SDL_PollEvent(&event))
+					; // clear event buffer
 				return false;
 			}
-            emscripten_sleep(1);
+			SDL_Delay(1);
 		} while (ticks2 < ticks1 + midPause);
 
 		// erase message
@@ -640,11 +640,11 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 				{
 					Mix_HaltChannel(fadChannel);
 					clearArea(&TXTPRI);
-					while(SDL_PollEvent(&event)) 
-                        ; // clear event buffer
+					while (SDL_PollEvent(&event))
+						; // clear event buffer
 					return false;
 				}
-                emscripten_sleep(1);
+				SDL_Delay(1);
 			} while (ticks2 < ticks1 + buzzStep);
 		}
 	}
@@ -655,14 +655,14 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 	if (fadeMode < 3)
 	{
 		clearArea(&TXTPRI);
-		while(SDL_PollEvent(&event)) 
-            ; // clear event buffer
+		while (SDL_PollEvent(&event))
+			; // clear event buffer
 		return true;
 	}
 	else
 	{
 		while (!scheduler.keyCheck()) // Wait for a key
-		  {
+		{
 			glClear(GL_COLOR_BUFFER_BIT);
 			glMatrixMode(GL_MODELVIEW);
 			glLoadIdentity();
@@ -672,11 +672,11 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop)
 			drawVectorList(wiz);
 			drawArea(&TXTPRI);
 			SDL_GL_SwapWindow(oslink.sdlWindow);
-            emscripten_sleep(1);
-		  }
+			SDL_Delay(1);
+		}
 		clearArea(&TXTPRI);
-		while(SDL_PollEvent(&event)) 
-            ; // clear event buffer
+		while (SDL_PollEvent(&event))
+			; // clear event buffer
 		return false;
 	}
 //    std::cout << "done ShowFade" << std::endl;

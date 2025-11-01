@@ -40,13 +40,13 @@ public:
 	void		deathFadeLoop();
 	void		winFadeLoop();
 	bool		keyCheck();
-	bool		keyHandler(SDL_Keysym * keysym);
+	bool		keyHandler(const SDL_Keysym* keysym);
 	void		Reset();
 	void		SAVE();
 	void		LOAD();
 	void		LoadSounds();
 	bool		EscCheck();
-	bool		EscHandler(SDL_Keysym * keysym);
+	bool		EscHandler(const SDL_Keysym* keysym);
 	void		pause(bool state);
 	void		updateCreatureRegen(int newTime);
 	void        ConfigureChannelSync(int channelCount);

@@ -65,7 +65,7 @@ void OS_Link::render() {
 //    std::cout << "In render" << std::endl;
 	bool handle_res = scheduler.SCHED();
 //    std::cout << "after scheduler" << std::endl;
-    if(handle_res) { 
+    if(handle_res) {
 	    if (scheduler.ZFLAG == 0xFF)
 	    {
 		    game.LoadGame();
@@ -260,10 +260,12 @@ void OS_Link::init()
 	}
 
 //    std::cout << "After keys" << std::endl;
-    // Wait for modes to change
-    emscripten_sleep(2500);
+  // Wait for modes to change on the web build so async asset loads settle
+#ifdef __EMSCRIPTEN__
+  SDL_Delay(2500);
+#endif
 
-    std::cout << "After sleep" << std::endl;
+  std::cout << "After sleep" << std::endl;
 	game.COMINI();
 
     std::cout << "After COMINI" << std::endl;
@@ -431,62 +433,93 @@ bool OS_Link::main_menu()
  scheduler.pause(true);
  viewer.drawMenu(mainMenu, col, row);
 
- do
+ auto handleMenuEvent = [&](const SDL_Event& event) {
+   switch (event.type)
    {
-   SDL_Event event;
-   while(SDL_PollEvent(&event))
+   case SDL_KEYDOWN:
    {
-   switch(event.type)
+     bool redraw = false;
+     switch (event.key.keysym.sym)
      {
-     case SDL_KEYDOWN:
-      switch(event.key.keysym.sym)
-        {
-        case SDLK_RETURN:
-	 end = menu_return(col, row, mainMenu);
-
-	   // Used for Wizard fade functions, if it's a new game, it will trigger a key press
-	 if(col == FILE_MENU_SWITCH && row == FILE_MENU_NEW)
-	   return true;
-
-         break;
-        case SDLK_UP:
-	 (row < 1) ? row = mainMenu.getMenuSize(col) - 1 : row--;
-         break;
-        case SDLK_DOWN:
-	 (row > mainMenu.getMenuSize(col) - 2) ? row = 0 : row++;
-         break;
-       case SDLK_LEFT:
-         if (NUM_MENU > 1)
-          {
-	 (col < 1) ? col = NUM_MENU - 1 : col--;
-	 row = 0;
-          }
-         break;
-        case SDLK_RIGHT:
-         if (NUM_MENU > 1)
-          {
-	 (col > NUM_MENU - 2) ? col = 0 : col++;
-	 row = 0;
-          }
-	 break;
-        case SDLK_ESCAPE:
-         end = true;
-	 break;
-        default:
-	 break;
-        }
-      viewer.drawMenu(mainMenu, col, row);
-      break;
-     case SDL_QUIT:
-      quitSDL(0);
-      break;
-     case SDL_WINDOWEVENT_EXPOSED:
-		SDL_GL_SwapWindow(sdlWindow);
-      break;
-      }
+     case SDLK_RETURN:
+       end = menu_return(col, row, mainMenu);
+       if (col == FILE_MENU_SWITCH && row == FILE_MENU_NEW)
+       {
+         return true;
+       }
+       redraw = true;
+       break;
+     case SDLK_UP:
+       row = (row < 1) ? mainMenu.getMenuSize(col) - 1 : row - 1;
+       redraw = true;
+       break;
+     case SDLK_DOWN:
+       row = (row > mainMenu.getMenuSize(col) - 2) ? 0 : row + 1;
+       redraw = true;
+       break;
+     case SDLK_LEFT:
+       if (NUM_MENU > 1)
+       {
+         col = (col < 1) ? NUM_MENU - 1 : col - 1;
+         row = 0;
+         redraw = true;
+       }
+       break;
+     case SDLK_RIGHT:
+       if (NUM_MENU > 1)
+       {
+         col = (col > NUM_MENU - 2) ? 0 : col + 1;
+         row = 0;
+         redraw = true;
+       }
+       break;
+     case SDLK_ESCAPE:
+       end = true;
+       redraw = true;
+       break;
+     default:
+       break;
      }
-   emscripten_sleep(1);
-  } while(!end);
+
+     if (redraw)
+     {
+       viewer.drawMenu(mainMenu, col, row);
+     }
+     break;
+   }
+   case SDL_QUIT:
+     quitSDL(0);
+     break;
+   case SDL_WINDOWEVENT_EXPOSED:
+     SDL_GL_SwapWindow(sdlWindow);
+     break;
+   default:
+     break;
+   }
+   return false;
+ };
+
+ SDL_Event event;
+ while (!end)
+ {
+   if (!SDL_WaitEventTimeout(&event, 16))
+   {
+     continue;
+   }
+
+   if (handleMenuEvent(event))
+   {
+     return true;
+   }
+
+   while (!end && SDL_PollEvent(&event))
+   {
+     if (handleMenuEvent(event))
+     {
+       return true;
+     }
+   }
+ }
 
   scheduler.pause(false);
 
@@ -686,12 +719,12 @@ int OS_Link::menu_list(int x, int y, char *title, std::string list[], int listSi
      case SDL_QUIT:
       quitSDL(0);
       break;
-     case SDL_WINDOWEVENT_EXPOSED:
+    case SDL_WINDOWEVENT_EXPOSED:
 		SDL_GL_SwapWindow(sdlWindow);
-      break;
-      }
-     }
-     emscripten_sleep(1);
+    break;
+    }
+  }
+  SDL_Delay(1);
   } // End of while loop
 
  return(-1);
@@ -772,7 +805,7 @@ position = std::max(0, std::min(31, position));
        break;
       }
     }
-    emscripten_sleep(1);
+    SDL_Delay(1);
    }
  }
 
@@ -853,13 +886,13 @@ void OS_Link::menu_string(char *newString, char *title, int maxLength)
      case SDL_QUIT:
       quitSDL(0);
       break;
-     case SDL_WINDOWEVENT_EXPOSED:
+    case SDL_WINDOWEVENT_EXPOSED:
 		SDL_GL_SwapWindow(sdlWindow);
-      break;
-      }
-     emscripten_sleep(1);
-     }
-    emscripten_sleep(1);
+    break;
+    }
+    SDL_Delay(1);
+    }
+   SDL_Delay(1);
   } // End of while loop
  }
 

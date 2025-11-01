@@ -24,8 +24,6 @@ is held by Douglas J. Morgan.
 #include "creature.h"
 #include "oslink.h"
 #include "enhanced.h"
-
-
 extern OS_Link		oslink;
 extern Creature		creature;
 extern Object		object;
@@ -375,10 +373,10 @@ void Player::HUPDAT()
 						scheduler.CLOCK();
 						scheduler.EscCheck();
 					}
-                    emscripten_sleep(1);
+					SDL_Delay(1);
 					scheduler.curTime = SDL_GetTicks();
 				} while (scheduler.curTime < ticks1 + 750);
-                emscripten_sleep(1);
+				SDL_Delay(1);
 			} while (viewer.RLIGHT != 248);	// not equal to -8
 			--viewer.UPDATE;
 			parser.KBDHDR = 0;
@@ -406,10 +404,10 @@ void Player::HUPDAT()
 						scheduler.CLOCK();
 						scheduler.EscCheck();
 					}
-                    emscripten_sleep(1);
+					SDL_Delay(1);
 					scheduler.curTime = SDL_GetTicks();
 				} while (scheduler.curTime < ticks1 + 750);
-                emscripten_sleep(1);
+				SDL_Delay(1);
 			} while (viewer.RLIGHT != viewer.OLIGHT);
 			FAINT = 0;
 			viewer.PROMPT();
@@ -748,7 +746,7 @@ void Player::PATTK()
 		ticks1 = SDL_GetTicks();
 		do
 		{
-            emscripten_sleep(1);
+			SDL_Delay(1);
 			ticks2 = SDL_GetTicks();
 		} while (ticks2 < ticks1 + wizDelay);
 
@@ -930,7 +928,7 @@ void Player::PCLIMB()
 					{
 						scheduler.CLOCK();
 					}
-                    emscripten_sleep(1);
+					SDL_Delay(1);
 					scheduler.curTime = SDL_GetTicks();
 				} while (scheduler.curTime < ticks1 + viewer.prepPause);
 				viewer.display_mode = temp;
@@ -961,7 +959,7 @@ void Player::PCLIMB()
 					{
 						scheduler.CLOCK();
 					}
-                    emscripten_sleep(1);
+					SDL_Delay(1);
 					scheduler.curTime = SDL_GetTicks();
 				} while (scheduler.curTime < ticks1 + viewer.prepPause);
 				viewer.display_mode = temp;
@@ -1158,7 +1156,7 @@ void Player::PINCAN()
 					ticks1 = SDL_GetTicks();
 					do
 					{
-                        emscripten_sleep(1);
+						SDL_Delay(1);
 						ticks2 = SDL_GetTicks();
 					} while (ticks2 < ticks1 + wizDelay);
 
@@ -1209,7 +1207,7 @@ void Player::PINCAN()
 					ticks1 = SDL_GetTicks();
 					do
 					{
-                        emscripten_sleep(1);
+						SDL_Delay(1);
 						ticks2 = SDL_GetTicks();
 					} while (ticks2 < ticks1 + wizDelay);
 
@@ -1264,7 +1262,7 @@ void Player::PMOVE()
 					return;
 				}
 			}
-            emscripten_sleep(1);
+			SDL_Delay(1);
 			scheduler.curTime = SDL_GetTicks();
 		} while (scheduler.curTime < ticks1 + (moveDelay / 2));
 		viewer.HLFSTP = 0;
@@ -1285,7 +1283,7 @@ void Player::PMOVE()
 					return;
 				}
 			}
-            emscripten_sleep(1);
+			SDL_Delay(1);
 			scheduler.curTime = SDL_GetTicks();
 		} while (scheduler.curTime < ticks1 + (moveDelay / 2));
 		return;
@@ -1308,7 +1306,7 @@ void Player::PMOVE()
 				}
 
 			}
-            emscripten_sleep(1);
+			SDL_Delay(1);
 			scheduler.curTime = SDL_GetTicks();
 		} while (scheduler.curTime < ticks1 + (moveDelay / 2));
 		viewer.BAKSTP = 0;
@@ -1329,7 +1327,7 @@ void Player::PMOVE()
 					return;
 				}
 			}
-            emscripten_sleep(1);
+			SDL_Delay(1);
 			scheduler.curTime = SDL_GetTicks();
 		} while (scheduler.curTime < ticks1 + (moveDelay / 2));
 		return;
@@ -1674,7 +1672,7 @@ void Player::ShowTurn(dodBYTE A)
 					SDL_GL_SwapWindow(oslink.sdlWindow);
 					redraw = false;
 				}
-                emscripten_sleep(1);
+				SDL_Delay(1);
 			} while (scheduler.curTime < ticks1 + turnDelay);
 		}
 	}

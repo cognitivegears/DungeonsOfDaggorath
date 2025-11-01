@@ -82,7 +82,7 @@ bool Scheduler::WaitForChannel(int channel, const WaitPump& pump)
 		{
 			return false;
 		}
-		emscripten_sleep(1);
+		SDL_Delay(1);
 	}
 	return true;
 #else
@@ -443,27 +443,84 @@ bool Scheduler::fadeLoop()
 	Mix_Volume(viewer.fadChannel, 0);
 	Mix_PlayChannel(viewer.fadChannel, creature.buzz, -1);
 
-	while(true)
+	const Uint32 frameIntervalMs = 16;
+	Uint32 nextFrameTick = SDL_GetTicks();
+
+	auto handleFadeEvent = [&](const SDL_Event& evt) -> bool {
+		switch (evt.type)
+		{
+		case SDL_KEYDOWN:
+		{
+			if (keyHandler(&evt.key.keysym))
+			{
+				viewer.clearArea(&viewer.TXTPRI);
+				SDL_Event drain;
+				while (SDL_PollEvent(&drain))
+				{
+					// clear event buffer
+				}
+				Mix_HaltChannel(viewer.fadChannel);
+				return true;
+			}
+			break;
+		}
+		case SDL_QUIT:
+			oslink.quitSDL(0);
+			break;
+		case SDL_WINDOWEVENT_EXPOSED:
+			SDL_GL_SwapWindow(oslink.sdlWindow);
+			break;
+		default:
+			break;
+		}
+		return false;
+	};
+
+	while (true)
 	{
-		if ( keyCheck() )
+		Uint32 now = SDL_GetTicks();
+		if (now < nextFrameTick)
 		{
-			viewer.clearArea(&viewer.TXTPRI);
-			while(SDL_PollEvent(&event))
-				; // clear event buffer
+			Uint32 waitMs = nextFrameTick - now;
+			if (SDL_WaitEventTimeout(&event, waitMs))
+			{
+				if (handleFadeEvent(event))
+				{
+					return false;
+				}
+				// Drain any additional pending events before evaluating drawing again
+				while (SDL_PollEvent(&event))
+				{
+					if (handleFadeEvent(event))
+					{
+						return false;
+					}
+				}
+				continue;
+			}
+		}
 
+		while (SDL_PollEvent(&event))
+		{
+			if (handleFadeEvent(event))
+			{
+				return false;
+			}
+		}
+
+		if (viewer.draw_fade())
+		{
 			// Stop buzz
 			Mix_HaltChannel(viewer.fadChannel);
 
-			return false;	// auto-play mode off == start demo game
+			return true; 	// auto-play mode on == start regular game
 		}
-		if ( viewer.draw_fade() )
-		{
-			// Stop buzz
-			Mix_HaltChannel(viewer.fadChannel);
 
-			return true;	// auto-play mode on == start regular game
+		nextFrameTick += frameIntervalMs;
+		if (SDL_TICKS_PASSED(now, nextFrameTick))
+		{
+			nextFrameTick = now + frameIntervalMs;
 		}
-        emscripten_sleep(1);
 	}
 }
 
@@ -491,7 +548,7 @@ void Scheduler::deathFadeLoop()
 	{
 		viewer.death_fade(viewer.W1_VLA);
 		EscCheck();
-        emscripten_sleep(1);
+		SDL_Delay(1);
 	}
 
 	// Stop buzz
@@ -500,17 +557,17 @@ void Scheduler::deathFadeLoop()
 	while(SDL_PollEvent(&event))
 		; // clear event buffer
 
-	while(true)
+	while (true)
 	{
 		viewer.death_fade(viewer.W1_VLA);
-		if ( keyCheck() )
+		if (keyCheck())
 		{
 			viewer.clearArea(&viewer.TXTPRI);
-			while(SDL_PollEvent(&event))
+			while (SDL_PollEvent(&event))
 				; // clear event buffer
 			return;
 		}
-        emscripten_sleep(1);
+		SDL_Delay(1);
 	}
 }
 
@@ -539,23 +596,23 @@ void Scheduler::winFadeLoop()
 	{
 		viewer.death_fade(viewer.W2_VLA);
 		EscCheck();
-        emscripten_sleep(1);
+		SDL_Delay(1);
 	}
 
 	// Stop buzz
 	Mix_HaltChannel(viewer.fadChannel);
 
-	while(true)
+	while (true)
 	{
 		viewer.death_fade(viewer.W2_VLA);
-		if ( keyCheck() )
+		if (keyCheck())
 		{
 			viewer.clearArea(&viewer.TXTPRI);
-			while(SDL_PollEvent(&event))
+			while (SDL_PollEvent(&event))
 				; // clear event buffer
 			return;
 		}
-        emscripten_sleep(1);
+		SDL_Delay(1);
 	}
 
 	while(SDL_PollEvent(&event))
@@ -585,7 +642,7 @@ bool Scheduler::keyCheck()
 }
 
 // Used by wizard fade in/out function
-bool Scheduler::keyHandler(SDL_Keysym * keysym)
+bool Scheduler::keyHandler(const SDL_Keysym* keysym)
 {
 	bool rc;
 
@@ -627,7 +684,7 @@ bool Scheduler::EscCheck()
 }
 
 // Used by wizard fade in/out function
-bool Scheduler::EscHandler(SDL_Keysym * keysym)
+bool Scheduler::EscHandler(const SDL_Keysym* keysym)
 {
 	bool rc;
 

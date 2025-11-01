@@ -25,7 +25,6 @@ is held by Douglas J. Morgan.
 #include "parser.h"
 #include "dungeon.h"
 #include "oslink.h"
-
 extern OS_Link		oslink;
 extern Dungeon		dungeon;
 extern Parser		parser;
@@ -144,7 +143,7 @@ void dodGame::COMINI()
 	do
 	{
 		oslink.process_events();
-        emscripten_sleep(1);
+	SDL_Delay(1);
 		ticks2 = SDL_GetTicks();
 	} while (ticks2 < ticks1 + viewer.prepPause);
 	
@@ -161,7 +160,7 @@ void dodGame::COMINI()
 		do
 		{
 			oslink.process_events();
-            emscripten_sleep(1);
+			SDL_Delay(1);
 			ticks2 = SDL_GetTicks();
 		} while (ticks2 < ticks1 + 3000);
 	}
@@ -197,7 +196,7 @@ void dodGame::Restart()
 	do
 	{
 		oslink.process_events();
-        emscripten_sleep(1);
+	SDL_Delay(1);
 		ticks2 = SDL_GetTicks();
 	} while (ticks2 < ticks1 + 2500);
 	
@@ -247,7 +246,7 @@ void dodGame::WAIT()
 			}
 			scheduler.EscCheck();
 		}
-        emscripten_sleep(1);
+	SDL_Delay(1);
 		scheduler.curTime = SDL_GetTicks();
 	} while (scheduler.curTime < ticks1 + 1500);
 }
