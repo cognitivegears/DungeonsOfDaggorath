@@ -2,7 +2,17 @@ OBJECTS = creature.o dod.o dodgame.o dungeon.o enhanced.o object.o oslink.o pars
 THREAD_POOL_SIZE := 1
 PTHREAD_FLAGS = -pthread -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 -s PTHREAD_POOL_SIZE=$(THREAD_POOL_SIZE) -s OFFSCREENCANVAS_SUPPORT=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=67108864 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
 
-CXXFLAGS = -std=c++11 -c
+BUILD_VERSION := $(shell git describe --always --dirty 2>/dev/null)
+ifeq ($(strip $(BUILD_VERSION)),)
+BUILD_VERSION := dev
+endif
+
+BUILD_TIMESTAMP := $(shell date -u +"%y-%m-%dT%H-%MZ" 2>/dev/null)
+ifeq ($(strip $(BUILD_TIMESTAMP)),)
+BUILD_TIMESTAMP := UNKNOWN
+endif
+
+CXXFLAGS = -std=c++11 -c -DBUILD_VERSION=\"$(BUILD_VERSION)\" -DBUILD_TIMESTAMP=\"$(BUILD_TIMESTAMP)\"
 ifdef EMSCRIPTEN
 #CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
 

@@ -24,6 +24,7 @@ is held by Douglas J. Morgan.
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+#include <string>
 
 
  // Arbitrary Length of 80, maybe be changed if needed
@@ -48,6 +49,9 @@ public:
     void stop_demo(); // Stop the demo / start game
     void trigger_menu(); // Open in-game menu
     void render(void);
+	const std::string& getBuildVersion() const;
+	const std::string& getBuildTimestamp() const;
+	const std::string& getBuildInfo() const;
 
 	// Public Data Fields
 	int		width;	// actual screen width after video setup
@@ -94,6 +98,9 @@ private:
 	int  bpp;	    // bits per pixel
 	int  flags;	    // SDL flags
 	bool FullScreen;    // FullScreen
+	std::string buildVersion;
+	std::string buildTimestamp;
+	std::string buildInfo;
 };
 
 #endif // OS_LINK_HEADER
