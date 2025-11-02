@@ -1,6 +1,6 @@
 OBJECTS = creature.o dod.o dodgame.o dungeon.o enhanced.o object.o oslink.o parser.o player.o sched.o viewer.o
 THREAD_POOL_SIZE := 1
-PTHREAD_FLAGS = -pthread -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 -s PTHREAD_POOL_SIZE=$(THREAD_POOL_SIZE) -s OFFSCREENCANVAS_SUPPORT=1 -s INITIAL_MEMORY=33554432 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
+PTHREAD_FLAGS = -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=$(THREAD_POOL_SIZE) -s INITIAL_MEMORY=33554432 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
 
 BUILD_VERSION := $(shell git describe --always --dirty 2>/dev/null)
 ifeq ($(strip $(BUILD_VERSION)),)
@@ -81,4 +81,3 @@ clean:
 	$(RM) $(OBJECTS)
 	$(RM) $(OUTPUT)
 	@echo Done
-
