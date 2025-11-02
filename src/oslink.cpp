@@ -268,13 +268,13 @@ void OS_Link::init() {
 
   sdlGlContext = SDL_GL_CreateContext(sdlWindow);
 
-  // TRY THIS
-  RegalMakeCurrent((RegalSystemContext)1);
-
   if (sdlGlContext == 0) {
     fprintf(stderr, "OpenGL context creation failed: %s\n", SDL_GetError());
     quitSDL(1);
   }
+
+  // Initialize Regal after context is confirmed to be valid
+  RegalMakeCurrent((RegalSystemContext)1);
   //    std::cout << "After GL context" << std::endl;
   // bpp = info->vfmt->BitsPerPixel;
   // TODO: ARE THESE NEEDED

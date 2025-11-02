@@ -1,5 +1,5 @@
 OBJECTS = creature.o dod.o dodgame.o dungeon.o enhanced.o object.o oslink.o parser.o player.o sched.o viewer.o
-PTHREAD_FLAGS = -s INITIAL_MEMORY=33554432 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
+PTHREAD_FLAGS = -s INITIAL_MEMORY=16777216 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
 
 BUILD_VERSION := $(shell git describe --always --dirty 2>/dev/null)
 ifeq ($(strip $(BUILD_VERSION)),)
@@ -16,10 +16,10 @@ ifdef EMSCRIPTEN
 #CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
 ifdef WEBSITE
 OUTPUT  = ../../index.js
-CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main","_triggermenu","_isdemo"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
+CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O2 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main","_triggermenu","_isdemo"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 else
 OUTPUT  = ../docs/index.html
-CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ --shell-file standalone.html
+CCLINK  = $(PTHREAD_FLAGS) -s USE_SDL=2 -O2 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ --shell-file standalone.html
 endif
 
 #CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2--preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1 --shell-file template.html
