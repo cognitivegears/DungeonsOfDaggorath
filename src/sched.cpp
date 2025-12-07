@@ -63,7 +63,14 @@ void Scheduler::ConfigureChannelSync(int channelCount) {
   Mix_ChannelFinished(ChannelFinishedThunk);
 }
 
-bool Scheduler::WaitForChannel(int channel, const WaitPump &pump) {
+bool Scheduler::WaitForChannel(int channel, const WaitPump &pump, bool nonBlocking) {
+  // On iOS Safari, frequent ASYNCIFY yield/resume cycles from SDL_Delay(1)
+  // accumulate overhead that can trigger execution timeouts after 2-3 minutes.
+  // Use nonBlocking=true for sounds that don't need synchronous completion.
+  if (nonBlocking) {
+    return true;
+  }
+
   auto pumpOnce = [&]() -> bool {
     if (pump) {
       return pump();
@@ -72,11 +79,13 @@ bool Scheduler::WaitForChannel(int channel, const WaitPump &pump) {
   };
 
 #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+  // Use a longer delay interval to reduce ASYNCIFY overhead on mobile Safari
+  const int delayMs = 8;
   while (Mix_Playing(channel) == 1) {
     if (!pumpOnce()) {
       return false;
     }
-    SDL_Delay(1);
+    SDL_Delay(delayMs);
   }
   return true;
 #else
@@ -97,7 +106,7 @@ bool Scheduler::WaitForChannel(int channel, const WaitPump &pump) {
         break;
       }
     } else {
-      SDL_Delay(1);
+      SDL_Delay(8);
     }
   }
   if (sem != nullptr) {
@@ -325,9 +334,10 @@ void Scheduler::CLOCK() {
       if (player.HEARTC == 0) {
         player.HEARTC = player.HEARTR;
 
-        // make sound
+        // make sound - non-blocking to avoid iOS Safari ASYNCIFY timeout
+        // Heartbeat sounds don't overlap and don't need synchronous completion
         Mix_PlayChannel(hrtChannel, hrtSound[(dodBYTE)(player.HEARTS + 1)], 0);
-        WaitForChannel(hrtChannel);
+        WaitForChannel(hrtChannel, WaitPump(), true);
 
         if (player.HEARTF != 0) {
           if ((player.HEARTS & 0x80) != 0) {

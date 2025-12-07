@@ -51,7 +51,10 @@ public:
   void ConfigureChannelSync(int channelCount);
 
   using WaitPump = std::function<bool()>;
-  bool WaitForChannel(int channel, const WaitPump &pump = WaitPump());
+  // nonBlocking: if true, returns immediately without waiting for audio.
+  // Use this for sounds that don't need synchronous completion (e.g., heartbeat)
+  // to avoid iOS Safari ASYNCIFY timeout issues.
+  bool WaitForChannel(int channel, const WaitPump &pump = WaitPump(), bool nonBlocking = false);
 
   // Public Data Fields
   Task TCBLND[38];
