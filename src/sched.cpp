@@ -482,7 +482,7 @@ void Scheduler::deathFadeLoop() {
   while (!viewer.done) {
     viewer.death_fade(viewer.W1_VLA);
     EscCheck();
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
 
   // Stop buzz
@@ -499,7 +499,7 @@ void Scheduler::deathFadeLoop() {
         ; // clear event buffer
       return;
     }
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
 }
 
@@ -526,7 +526,7 @@ void Scheduler::winFadeLoop() {
   while (!viewer.done) {
     viewer.death_fade(viewer.W2_VLA);
     EscCheck();
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
 
   // Stop buzz
@@ -540,7 +540,7 @@ void Scheduler::winFadeLoop() {
         ; // clear event buffer
       return;
     }
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
 
   while (SDL_PollEvent(&event))

@@ -532,7 +532,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
           ; // clear event buffer
         return false;
       }
-      SDL_Delay(1);
+      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     } while (ticks2 < ticks1 + buzzStep);
   }
   //    std::cout << "after for" << std::endl;
@@ -593,7 +593,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
           ; // clear event buffer
         return false;
       }
-      SDL_Delay(1);
+      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     } while (ticks2 < ticks1 + midPause);
 
     // erase message
@@ -651,7 +651,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
             ; // clear event buffer
           return false;
         }
-        SDL_Delay(1);
+        SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
       } while (ticks2 < ticks1 + buzzStep);
     }
   }
@@ -676,7 +676,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
       drawVectorList(wiz);
       drawArea(&TXTPRI);
       SDL_GL_SwapWindow(oslink.sdlWindow);
-      SDL_Delay(1);
+      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     }
     clearArea(&TXTPRI);
     while (SDL_PollEvent(&event))

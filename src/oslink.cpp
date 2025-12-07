@@ -786,7 +786,7 @@ int OS_Link::menu_list(int x, int y, char *title, std::string list[],
         break;
       }
     }
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   } // End of while loop
 
   return (-1);
@@ -862,7 +862,7 @@ int OS_Link::menu_scrollbar(std::string title, int min, int max, int current) {
         break;
       }
     }
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
 }
 
@@ -940,9 +940,8 @@ void OS_Link::menu_string(char *newString, char *title, int maxLength) {
         SDL_GL_SwapWindow(sdlWindow);
         break;
       }
-      SDL_Delay(1);
+      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     }
-    SDL_Delay(1);
   } // End of while loop
 }
 

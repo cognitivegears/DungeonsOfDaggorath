@@ -133,7 +133,7 @@ void dodGame::COMINI() {
   ticks1 = SDL_GetTicks();
   do {
     oslink.process_events();
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     ticks2 = SDL_GetTicks();
   } while (ticks2 < ticks1 + viewer.prepPause);
 
@@ -148,7 +148,7 @@ void dodGame::COMINI() {
     ticks1 = SDL_GetTicks();
     do {
       oslink.process_events();
-      SDL_Delay(1);
+      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
       ticks2 = SDL_GetTicks();
     } while (ticks2 < ticks1 + 3000);
   }
@@ -181,7 +181,7 @@ void dodGame::Restart() {
   ticks1 = SDL_GetTicks();
   do {
     oslink.process_events();
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     ticks2 = SDL_GetTicks();
   } while (ticks2 < ticks1 + 2500);
 
@@ -225,7 +225,7 @@ void dodGame::WAIT() {
       }
       scheduler.EscCheck();
     }
-    SDL_Delay(1);
+    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     scheduler.curTime = SDL_GetTicks();
   } while (scheduler.curTime < ticks1 + 1500);
 }

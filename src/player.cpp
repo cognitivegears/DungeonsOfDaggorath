@@ -326,10 +326,9 @@ void Player::HUPDAT() {
             scheduler.CLOCK();
             scheduler.EscCheck();
           }
-          SDL_Delay(1);
+          SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
           scheduler.curTime = SDL_GetTicks();
         } while (scheduler.curTime < ticks1 + 750);
-        SDL_Delay(1);
       } while (viewer.RLIGHT != 248); // not equal to -8
       --viewer.UPDATE;
       parser.KBDHDR = 0;
@@ -351,10 +350,9 @@ void Player::HUPDAT() {
             scheduler.CLOCK();
             scheduler.EscCheck();
           }
-          SDL_Delay(1);
+          SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
           scheduler.curTime = SDL_GetTicks();
         } while (scheduler.curTime < ticks1 + 750);
-        SDL_Delay(1);
       } while (viewer.RLIGHT != viewer.OLIGHT);
       FAINT = 0;
       viewer.PROMPT();
@@ -651,7 +649,7 @@ void Player::PATTK() {
     // Pause so player can see scroll
     ticks1 = SDL_GetTicks();
     do {
-      SDL_Delay(1);
+      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
       ticks2 = SDL_GetTicks();
     } while (ticks2 < ticks1 + wizDelay);
 
@@ -812,7 +810,7 @@ void Player::PCLIMB() {
           if (scheduler.curTime >= scheduler.TCBLND[0].next_time) {
             scheduler.CLOCK();
           }
-          SDL_Delay(1);
+          SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
           scheduler.curTime = SDL_GetTicks();
         } while (scheduler.curTime < ticks1 + viewer.prepPause);
         viewer.display_mode = temp;
@@ -836,7 +834,7 @@ void Player::PCLIMB() {
           if (scheduler.curTime >= scheduler.TCBLND[0].next_time) {
             scheduler.CLOCK();
           }
-          SDL_Delay(1);
+          SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
           scheduler.curTime = SDL_GetTicks();
         } while (scheduler.curTime < ticks1 + viewer.prepPause);
         viewer.display_mode = temp;
@@ -997,7 +995,7 @@ void Player::PINCAN() {
           // Pause so player can see status line
           ticks1 = SDL_GetTicks();
           do {
-            SDL_Delay(1);
+            SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
             ticks2 = SDL_GetTicks();
           } while (ticks2 < ticks1 + wizDelay);
 
@@ -1040,7 +1038,7 @@ void Player::PINCAN() {
           // Pause so player can see status line
           ticks1 = SDL_GetTicks();
           do {
-            SDL_Delay(1);
+            SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
             ticks2 = SDL_GetTicks();
           } while (ticks2 < ticks1 + wizDelay);
 
@@ -1085,7 +1083,7 @@ void Player::PMOVE() {
           return;
         }
       }
-      SDL_Delay(1);
+      SDL_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
       scheduler.curTime = SDL_GetTicks();
     } while (scheduler.curTime < ticks1 + (moveDelay / 2));
     viewer.HLFSTP = 0;
@@ -1103,7 +1101,7 @@ void Player::PMOVE() {
           return;
         }
       }
-      SDL_Delay(1);
+      SDL_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
       scheduler.curTime = SDL_GetTicks();
     } while (scheduler.curTime < ticks1 + (moveDelay / 2));
     return;
@@ -1120,7 +1118,7 @@ void Player::PMOVE() {
           return;
         }
       }
-      SDL_Delay(1);
+      SDL_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
       scheduler.curTime = SDL_GetTicks();
     } while (scheduler.curTime < ticks1 + (moveDelay / 2));
     viewer.BAKSTP = 0;
@@ -1138,7 +1136,7 @@ void Player::PMOVE() {
           return;
         }
       }
-      SDL_Delay(1);
+      SDL_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
       scheduler.curTime = SDL_GetTicks();
     } while (scheduler.curTime < ticks1 + (moveDelay / 2));
     return;
@@ -1415,7 +1413,7 @@ void Player::ShowTurn(dodBYTE A) {
           SDL_GL_SwapWindow(oslink.sdlWindow);
           redraw = false;
         }
-        SDL_Delay(1);
+        SDL_Delay(4); // Smaller delay for smoother turn animation
       } while (scheduler.curTime < ticks1 + turnDelay);
     }
   }
