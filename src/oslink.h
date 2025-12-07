@@ -49,9 +49,21 @@ public:
     void stop_demo(); // Stop the demo / start game
     void trigger_menu(); // Open in-game menu
     void render(void);
+    bool menuReturn(int, int, menu); // Non-blocking wrapper for main menu handling
 	const std::string& getBuildVersion() const;
 	const std::string& getBuildTimestamp() const;
 	const std::string& getBuildInfo() const;
+
+	// Menu state for non-blocking menus
+	enum MenuPendingType {
+		MENU_PENDING_NONE,
+		MENU_PENDING_LIST,
+		MENU_PENDING_SCROLLBAR,
+		MENU_PENDING_STRING
+	};
+	MenuPendingType menuPending;
+	int menuPendingId;    // Which menu ID triggered the pending
+	int menuPendingItem;  // Which item triggered the pending
 
 	// Public Data Fields
 	int		width;	// actual screen width after video setup

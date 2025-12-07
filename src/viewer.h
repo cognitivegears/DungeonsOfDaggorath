@@ -79,6 +79,12 @@ public:
 	void		drawVector(float X0, float Y0, float X1, float Y1);
 	void		Reset();
 	bool		ShowFade(int fadeMode, bool inMainLoop = true);
+
+	// Non-blocking fade interface for state machine
+	void		initFade(int fadeMode);
+	bool		updateFade();  // Returns true when fade is complete
+	bool		fadeWasInterrupted() const { return fadeInterrupted; }
+
 	void            drawMenu(menu, int, int);
 	void		drawMenuList(int, int, std::string, std::string[], int, int);
 	void		drawMenuScrollbar(std::string, int);
@@ -104,6 +110,12 @@ public:
 	int			buzzStep;
 	int			midPause;
 	int			prepPause;
+
+	// Non-blocking fade state
+	int			currentFadeMode;
+	bool		fadeInterrupted;
+	Uint32		fadeStartTime;
+	Uint32		fadeNextFrameTime;
 
 	dodBYTE		Scale[21];
 	float		Scalef[21];

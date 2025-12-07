@@ -132,7 +132,8 @@ extern Parser parser;
 
 // Constructor
 OS_Link::OS_Link()
-    : width(0), height(0), bpp(0), flags(0), audio_rate(44100),
+    : menuPending(MENU_PENDING_NONE), menuPendingId(0), menuPendingItem(0),
+      width(0), height(0), bpp(0), flags(0), audio_rate(44100),
       audio_format(AUDIO_S16), audio_channels(2), audio_buffers(512),
   gamefileLen(50), keylayout(0), keyLen(256),
   buildVersion(sanitizeForMenu(BUILD_VERSION)),
@@ -170,9 +171,86 @@ const std::string &OS_Link::getBuildTimestamp() const { return buildTimestamp; }
 const std::string &OS_Link::getBuildInfo() const { return buildInfo; }
 
 void OS_Link::render() {
-  //    std::cout << "In render" << std::endl;
+  // All states go through the state machine
+  bool runScheduler = game.updateState();
+
+  if (!runScheduler) {
+    return;
+  }
+
+  // STATE_PLAYING or fade/menu states that signal completion
+  dodGame::GameState state = game.getState();
+
+  // Handle death fade completion - restart the game
+  if (state == dodGame::STATE_DEATH_FADE) {
+    // Death fade completed, handle restart
+    if (game.AUTFLG) {
+      if (game.demoRestart) {
+        game.hasWon = false;
+        game.DEMOPTR = 0;
+        object.Reset();
+        creature.Reset();
+        parser.Reset();
+        player.Reset();
+        scheduler.Reset();
+        viewer.Reset();
+        dungeon.VFTPTR = 0;
+        game.COMINI();
+      } else {
+        game.AUTFLG = false;
+        game.Restart();
+      }
+    } else {
+      game.Restart();
+    }
+    return;
+  }
+
+  // Handle victory fade completion - restart but keep hasWon=true
+  if (state == dodGame::STATE_WIN_FADE) {
+    // Victory fade completed - hasWon is already set by updateVictoryFade
+    // Now restart to show the win or go back to demo
+    if (game.AUTFLG) {
+      if (game.demoRestart) {
+        // Demo won - restart demo
+        game.DEMOPTR = 0;
+        object.Reset();
+        creature.Reset();
+        parser.Reset();
+        player.Reset();
+        scheduler.Reset();
+        viewer.Reset();
+        dungeon.VFTPTR = 0;
+        game.hasWon = false; // Clear for demo restart
+        game.COMINI();
+      } else {
+        // Player started new game, won - restart
+        game.AUTFLG = false;
+        game.Restart();
+      }
+    } else {
+      // Normal game - restart after victory
+      game.Restart();
+    }
+    return;
+  }
+
+  // Note: STATE_INTERMISSION_FADE sets state to PLAYING before returning,
+  // so it falls through to normal gameplay below
+
+  if (state != dodGame::STATE_PLAYING) {
+    return;
+  }
+
+  // Normal gameplay - run scheduler
   bool handle_res = scheduler.SCHED();
-  //    std::cout << "after scheduler" << std::endl;
+
+  // If SCHED triggered a state change (e.g., death/victory fade), don't process result yet
+  // Let the state machine handle it next frame
+  if (game.getState() != dodGame::STATE_PLAYING) {
+    return;
+  }
+
   if (handle_res) {
     if (scheduler.ZFLAG == 0xFF) {
       game.LoadGame();
@@ -204,12 +282,9 @@ void OS_Link::render() {
 }
 
 void main_game_loop(void *arg) {
-  // For emscripten, we don't care about the frame rate, we care about
-  // not interrupting an existing run - otherwise we might not run everything
-  // in a single frame and Daggorath runs synchronously.
-  emscripten_pause_main_loop();
+  // Main game loop - called at browser frame rate
+  // Game timing is handled by delta-time compensation in the scheduler
   static_cast<OS_Link *>(arg)->render();
-  emscripten_resume_main_loop();
 }
 
 static void myError(GLenum error) {
@@ -360,12 +435,10 @@ void OS_Link::init() {
 
 //    std::cout << "After keys" << std::endl;
   std::cout << "Build Info: " << getBuildInfo() << std::endl;
-// Wait for modes to change on the web build so async asset loads settle
-#ifdef __EMSCRIPTEN__
-  SDL_Delay(2500);
-#endif
+  // Note: Removed DOD_Delay(2500) - assets are preloaded by Emscripten
+  // and blocking delays don't work without ASYNCIFY
 
-  std::cout << "After sleep" << std::endl;
+  std::cout << "Starting game..." << std::endl;
   game.COMINI();
 
   std::cout << "After COMINI" << std::endl;
@@ -450,7 +523,7 @@ void OS_Link::handle_key_down(SDL_Keysym *keysym) {
   if (viewer.display_mode == Viewer::MODE_MAP) {
     switch (keysym->sym) {
     case SDLK_ESCAPE:
-      main_menu();
+      game.requestMenu();
       break;
     default:
       viewer.display_mode = Viewer::MODE_3D;
@@ -493,7 +566,7 @@ void OS_Link::handle_key_down(SDL_Keysym *keysym) {
       break;
 
     case SDLK_ESCAPE:
-      main_menu();
+      game.requestMenu();
       return;
 
     default:
@@ -512,6 +585,11 @@ void OS_Link::handle_key_down(SDL_Keysym *keysym) {
             false - otherwise
 *********************************************************/
 bool OS_Link::main_menu() {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Non-blocking: set up state and return
+  game.requestMenu();
+  return false;
+#else
   bool end = false;
   static int row = 0, col = 0;
   static menu mainMenu;
@@ -598,6 +676,14 @@ bool OS_Link::main_menu() {
   scheduler.pause(false);
 
   return false;
+#endif
+}
+
+/*********************************************************
+ * Public wrapper for non-blocking menu flow
+ *********************************************************/
+bool OS_Link::menuReturn(int menu_id, int item, menu Menu) {
+  return menu_return(menu_id, item, Menu);
 }
 
 /* Function to process menu commands
@@ -621,11 +707,14 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
       return true;
 
     case FILE_MENU_GRAPHICS: {
-      std::string menuList[] = {"NORMAL GRAPHICS", "HIRES GRAPHICS",
-                                "VECTOR GRAPHICS"};
+      // Static to survive function return for non-blocking menu
+      static std::string graphicsMenuList[] = {"NORMAL GRAPHICS", "HIRES GRAPHICS",
+                                               "VECTOR GRAPHICS"};
 
-      switch (menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                        menuList, 3)) {
+      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                             graphicsMenuList, 3);
+      if (result == -2) return false; // Pending - submenu started
+      switch (result) {
       case 0:
         g_options &= ~(OPT_VECTOR | OPT_HIRES);
         break;
@@ -646,6 +735,7 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
     case FILE_MENU_CREATURE_SPEED: {
       int newSpeed =
           menu_scrollbar("CREATURE SPEED", 50, 300, creature.creSpeedMul);
+      if (newSpeed == -2) return false; // Pending - submenu started
       if (newSpeed != creature.creSpeedMul) {
         creature.creSpeedMul = newSpeed;
         creature.UpdateCreSpeed();
@@ -655,12 +745,14 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
 
     case FILE_MENU_TURN_DELAY: {
       int newDelay = menu_scrollbar("TURN DELAY", 10, 200, player.turnDelay);
+      if (newDelay == -2) return false; // Pending - submenu started
       player.turnDelay = newDelay;
     }
       return false;
 
     case FILE_MENU_MOVE_DELAY: {
       int newDelay = menu_scrollbar("MOVE DELAY", 100, 1000, player.moveDelay);
+      if (newDelay == -2) return false; // Pending - submenu started
       player.moveDelay = newDelay;
     }
       return false;
@@ -668,6 +760,7 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
     case FILE_MENU_CREATURE_REGEN: {
       int newRegen =
           menu_scrollbar("CREATURE REGEN (MIN)", 1, 10, creatureRegen);
+      if (newRegen == -2) return false; // Pending - submenu started
       if (newRegen != creatureRegen) {
         creatureRegen = newRegen;
         scheduler.updateCreatureRegen(creatureRegen);
@@ -676,15 +769,20 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
       return false;
 
     case FILE_MENU_VOLUME: {
-      volumeLevel = menu_scrollbar("VOLUME LEVEL", 0, 128, volumeLevel);
+      int newVolume = menu_scrollbar("VOLUME LEVEL", 0, 128, volumeLevel);
+      if (newVolume == -2) return false; // Pending - submenu started
+      volumeLevel = newVolume;
       Mix_Volume(-1, static_cast<int>((volumeLevel * MIX_MAX_VOLUME) / 128));
     }
       return false;
 
     case FILE_MENU_RANDOM_MAZE: {
-      std::string menuList[] = {"ON", "OFF"};
-      switch (menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                        menuList, 2)) {
+      // Static to survive function return for non-blocking menu
+      static std::string randomMazeMenuList[] = {"ON", "OFF"};
+      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                             randomMazeMenuList, 2);
+      if (result == -2) return false; // Pending - submenu started
+      switch (result) {
       case 0:
         game.RandomMaze = true;
         break;
@@ -698,9 +796,12 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
       return false;
 
     case FILE_MENU_SND_MODE: {
-      std::string menuList[2] = {"STEREO", "MONO"};
-      switch (menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                        menuList, 2)) {
+      // Static to survive function return for non-blocking menu
+      static std::string sndModeMenuList[] = {"STEREO", "MONO"};
+      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                             sndModeMenuList, 2);
+      if (result == -2) return false; // Pending - submenu started
+      switch (result) {
       case 0:
         g_options |= OPT_STEREO;
         break;
@@ -749,6 +850,20 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
 
 int OS_Link::menu_list(int x, int y, char *title, std::string list[],
                        int listSize) {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Non-blocking: set up state and return pending
+  game.menuX = x;
+  game.menuY = y;
+  game.menuTitle = title;
+  game.menuList = list;
+  game.menuListSize = listSize;
+  game.menuListChoice = 0;
+  game.menuComplete = false;
+  game.menuReturnValue = -1;
+  menuPending = MENU_PENDING_LIST;
+  game.setState(dodGame::STATE_MENU_LIST);
+  return -2; // Pending
+#else
   int currentChoice = 0;
 
   while (true) {
@@ -786,10 +901,11 @@ int OS_Link::menu_list(int x, int y, char *title, std::string list[],
         break;
       }
     }
-    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+    DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   } // End of while loop
 
   return (-1);
+#endif
 }
 
 /*****************************************************************************
@@ -805,6 +921,27 @@ int OS_Link::menu_list(int x, int y, char *title, std::string list[],
  ******************************************************************************/
 
 int OS_Link::menu_scrollbar(std::string title, int min, int max, int current) {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Non-blocking: set up state and return pending
+  int range = max - min;
+  if (range <= 0) {
+    return current;
+  }
+  int position = static_cast<int>(std::round((static_cast<double>(current - min) * 31.0) /
+                                              static_cast<double>(range)));
+  position = std::max(0, std::min(31, position));
+
+  game.menuTitle = title;
+  game.menuScrollMin = min;
+  game.menuScrollMax = max;
+  game.menuScrollPosition = position;
+  game.menuOriginalScrollPos = position;
+  game.menuComplete = false;
+  game.menuReturnValue = current;
+  menuPending = MENU_PENDING_SCROLLBAR;
+  game.setState(dodGame::STATE_MENU_SCROLLBAR);
+  return -2; // Pending
+#else
   int oldvalue = current; // Save the old value in case the user escapes
   int range = max - min;
   if (range <= 0) {
@@ -862,8 +999,9 @@ int OS_Link::menu_scrollbar(std::string title, int min, int max, int current) {
         break;
       }
     }
-    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+    DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
+#endif
 }
 
 /*****************************************************************************
@@ -874,6 +1012,17 @@ int OS_Link::menu_scrollbar(std::string title, int min, int max, int current) {
  *             maxLength - The maximum size of the entry
  ******************************************************************************/
 void OS_Link::menu_string(char *newString, char *title, int maxLength) {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Non-blocking: set up state and return
+  *newString = '\0';
+  game.menuTitle = title;
+  game.menuStringBuffer = newString;
+  game.menuMaxLength = maxLength;
+  game.menuComplete = false;
+  menuPending = MENU_PENDING_STRING;
+  game.setState(dodGame::STATE_MENU_STRING);
+  return;
+#else
   *newString = '\0';
   viewer.drawMenuStringTitle(title);
   viewer.drawMenuString(newString);
@@ -940,9 +1089,10 @@ void OS_Link::menu_string(char *newString, char *title, int maxLength) {
         SDL_GL_SwapWindow(sdlWindow);
         break;
       }
-      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     }
   } // End of while loop
+#endif
 }
 
 /******************************************************************************

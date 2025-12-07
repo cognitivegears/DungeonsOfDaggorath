@@ -46,6 +46,19 @@ is held by Douglas J. Morgan.
 //#include <GLES2/gl2ext.h>
 #include <SDL2/SDL_mixer.h>
 
+// Non-blocking delay for Emscripten without ASYNCIFY
+// SDL_Delay would block the browser, so we make it a no-op
+// Game timing is handled by delta-time compensation in the scheduler
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+inline void DOD_Delay(Uint32 ms) {
+  (void)ms; // No-op: cannot block without ASYNCIFY
+}
+#else
+inline void DOD_Delay(Uint32 ms) {
+  SDL_Delay(ms);
+}
+#endif
+
 // Standard headers
 #include <stdio.h>
 #include <stdlib.h>

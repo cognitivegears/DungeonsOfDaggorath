@@ -39,7 +39,8 @@ extern dodGame game;
 // Constructor
 Viewer::Viewer()
     : VCNTRX(128), VCNTRY(76), fadChannel(3), buzzStep(300), midPause(2500),
-      prepPause(2500) {
+      prepPause(2500), currentFadeMode(0), fadeInterrupted(false),
+      fadeStartTime(0), fadeNextFrameTime(0) {
   Utils::LoadFromDecDigit(A_VLA, "411212717516167572757582823535424");
   Utils::LoadFromDecDigit(B_VLA,
                           "6112128182151522224545525275758285262645455656757");
@@ -364,6 +365,11 @@ void Viewer::Reset() {
   delay = 0;
   done = false;
   fadeVal = -2;
+  // Non-blocking fade state
+  currentFadeMode = 0;
+  fadeInterrupted = false;
+  fadeStartTime = 0;
+  fadeNextFrameTime = 0;
   clearArea(&TXTPRI);
   clearArea(&TXTEXA);
   clearArea(&TXTSTS);
@@ -453,6 +459,134 @@ void Viewer::draw_game() {
   UPDATE = 0;
 }
 
+// Non-blocking fade initialization
+void Viewer::initFade(int fadeMode) {
+  currentFadeMode = fadeMode;
+  fadeInterrupted = false;
+  fadeStartTime = SDL_GetTicks();
+  fadeNextFrameTime = fadeStartTime;
+
+  VXSCAL = 0x80;
+  VYSCAL = 0x80;
+  VXSCALf = 128.0f;
+  VYSCALf = 128.0f;
+
+  clearArea(&TXTPRI);
+
+  switch (fadeMode) {
+  case FADE_BEGIN:
+    displayCopyright();
+    displayWelcomeMessage();
+    break;
+  case FADE_MIDDLE:
+    clearArea(&TXTSTS);
+    displayEnough();
+    break;
+  case FADE_DEATH:
+    clearArea(&TXTSTS);
+    displayDeath();
+    break;
+  case FADE_VICTORY:
+    clearArea(&TXTSTS);
+    displayWinner();
+    break;
+  }
+
+  RANGE = 1;
+  SETSCL();
+  VCTFAD = 32;
+  fadeVal = -2;
+  done = false;
+
+  // Start buzz sound
+  Mix_Volume(fadChannel, 0);
+  Mix_PlayChannel(fadChannel, creature.buzz, -1);
+
+  // Clear event buffer
+  SDL_Event event;
+  while (SDL_PollEvent(&event))
+    ;
+}
+
+// Non-blocking fade update - call each frame
+// Returns true when fade is complete
+bool Viewer::updateFade() {
+  Uint32 now = SDL_GetTicks();
+  int *wiz = (currentFadeMode == FADE_VICTORY) ? W2_VLA : W1_VLA;
+
+  // Check for key press to skip fade (only for FADE_BEGIN)
+  if (currentFadeMode == FADE_BEGIN && scheduler.keyCheck()) {
+    Mix_HaltChannel(fadChannel);
+    clearArea(&TXTPRI);
+    fadeInterrupted = false; // Key pressed = not demo mode
+    SDL_Event event;
+    while (SDL_PollEvent(&event))
+      ;
+    return true;
+  }
+
+  // Rate limit to ~60fps
+  if (now < fadeNextFrameTime) {
+    return false;
+  }
+  fadeNextFrameTime = now + 16;
+
+  // Update fade animation based on phase
+  if (!done) {
+    // Fade in phase
+    if ((VCTFAD & 128) == 0) {
+      // Set volume of buzz
+      Mix_Volume(fadChannel,
+                 static_cast<int>(
+                     ((32 - VCTFAD) / 2) *
+                     ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
+
+      // Draw frame
+      glClear(GL_COLOR_BUFFER_BIT);
+      glMatrixMode(GL_MODELVIEW);
+      glLoadIdentity();
+      drawArea(&TXTSTS);
+      glColor3fv(fgColor);
+      glLoadIdentity();
+      drawVectorList(wiz);
+      drawArea(&TXTPRI);
+      SDL_GL_SwapWindow(oslink.sdlWindow);
+
+      // Advance fade (faster than original for snappier response)
+      VCTFAD -= 4;
+    } else {
+      // Fade complete
+      VCTFAD = 0;
+      done = true;
+      Mix_HaltChannel(fadChannel);
+
+      // Play crash sound (non-blocking)
+      Mix_Volume(fadChannel,
+                 static_cast<int>((oslink.volumeLevel * MIX_MAX_VOLUME) / 128));
+      Mix_PlayChannel(fadChannel, creature.kaboom, 0);
+    }
+  } else {
+    // After fade in - just draw final frame
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    drawArea(&TXTSTS);
+    glColor3fv(fgColor);
+    glLoadIdentity();
+    drawVectorList(wiz);
+    drawArea(&TXTPRI);
+    SDL_GL_SwapWindow(oslink.sdlWindow);
+
+    // Check if crash sound is done
+    if (Mix_Playing(fadChannel) == 0) {
+      fadeInterrupted = true; // No key pressed = demo mode
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // This method renders the wizard fade in/out animations.
 // The parameter fadeMode indicates which of the four fades
 // to do:
@@ -461,6 +595,34 @@ void Viewer::draw_game() {
 //   3 = Death
 //   4 = Victory
 bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Without ASYNCIFY, blocking fades don't work - just display message and return
+  (void)inMainLoop;
+  clearArea(&TXTPRI);
+  switch (fadeMode) {
+  case FADE_BEGIN:
+    displayCopyright();
+    displayWelcomeMessage();
+    break;
+  case FADE_MIDDLE:
+    clearArea(&TXTSTS);
+    displayEnough();
+    break;
+  case FADE_DEATH:
+    clearArea(&TXTSTS);
+    displayDeath();
+    break;
+  case FADE_VICTORY:
+    clearArea(&TXTSTS);
+    displayWinner();
+    break;
+  }
+  // Play sound once (non-blocking)
+  Mix_PlayChannel(fadChannel, creature.kaboom, 0);
+  // For death/victory, we can't wait for key - just return
+  // The game will restart automatically
+  return (fadeMode >= FADE_DEATH) ? false : true;
+#else
   //    std::cout << "in showfade" << std::endl;
   Uint32 ticks1, ticks2;
   SDL_Event event;
@@ -532,7 +694,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
           ; // clear event buffer
         return false;
       }
-      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     } while (ticks2 < ticks1 + buzzStep);
   }
   //    std::cout << "after for" << std::endl;
@@ -593,7 +755,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
           ; // clear event buffer
         return false;
       }
-      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     } while (ticks2 < ticks1 + midPause);
 
     // erase message
@@ -651,7 +813,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
             ; // clear event buffer
           return false;
         }
-        SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+        DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
       } while (ticks2 < ticks1 + buzzStep);
     }
   }
@@ -676,7 +838,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
       drawVectorList(wiz);
       drawArea(&TXTPRI);
       SDL_GL_SwapWindow(oslink.sdlWindow);
-      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     }
     clearArea(&TXTPRI);
     while (SDL_PollEvent(&event))
@@ -684,6 +846,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
     return false;
   }
   //    std::cout << "done ShowFade" << std::endl;
+#endif
 }
 
 // This is the renderer method used to do the wizard

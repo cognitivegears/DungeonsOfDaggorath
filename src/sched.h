@@ -74,6 +74,12 @@ public:
   Uint32 curTime;
   Uint32 elapsedTime;
 
+  // Delta-time tracking for frame-independent timing
+  Uint32 lastFrameTime;
+  Uint32 accumulator;
+  static const Uint32 TICK_STEP = 17; // Fixed tick step in ms (original game timing)
+  static const Uint32 MAX_CATCHUP = 10; // Max ticks to process per frame to avoid spiral
+
   Mix_Chunk *hrtSound[2];
   int hrtChannel;
 
