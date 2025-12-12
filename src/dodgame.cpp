@@ -1127,10 +1127,30 @@ void dodGame::requestFaintAnimation() {
   faintIsDeath = false;
   faintStepCount = 0;
   faintStartLight = viewer.RLIGHT; // Save starting light for reference
-  // Set animFrameStart to 0 so first update triggers immediately
-  // This matches original behavior: decrement-draw-wait (not wait-decrement-draw)
-  animFrameStart = 0;
   animFrameDuration = 750; // 750ms per step, matching original
+
+  // Do the first step immediately (matching original do-while behavior)
+  // Original: decrement MLIGHT, draw, decrement RLIGHT, then wait
+  --viewer.MLIGHT;
+  --viewer.UPDATE;
+  // Debug: log RLIGHT values to understand the animation
+  printf("FAINT START: RLIGHT=%d, MLIGHT=%d, OLIGHT=%d\n",
+         (int)viewer.RLIGHT, (int)viewer.MLIGHT, (int)viewer.OLIGHT);
+  viewer.draw_game();
+  --viewer.RLIGHT;
+  ++faintStepCount;
+  animFrameStart = SDL_GetTicks(); // Start timer for next step
+
+  // Check if animation completed on first step (RLIGHT was already close to 248)
+  // This shouldn't happen in normal gameplay but handle it gracefully
+  if (viewer.RLIGHT == (dodBYTE)faintTargetLight) {
+    viewer.RLIGHT = (dodBYTE)faintTargetLight;
+    viewer.MLIGHT = (dodBYTE)faintTargetLight;
+    --viewer.UPDATE;
+    parser.KBDHDR = 0;
+    parser.KBDTAL = 0;
+    // Stay in FAINT_ANIMATION state - updateFaintAnimation will handle completion
+  }
 }
 
 // Request recover animation (non-blocking, heartbeat with screen brightening)
@@ -1148,10 +1168,16 @@ void dodGame::requestRecoverAnimation() {
   }
   faintStartLight = viewer.RLIGHT; // Should be 248
 
-  // Set animFrameStart to 0 so first update triggers immediately
-  // This matches original behavior: draw-increment-wait (not wait-draw-increment)
-  animFrameStart = 0;
   animFrameDuration = 750; // 750ms per step, matching original
+
+  // Do the first step immediately (matching original do-while behavior)
+  // Original: draw, increment MLIGHT and RLIGHT, then wait
+  --viewer.UPDATE;
+  viewer.draw_game();
+  ++viewer.MLIGHT;
+  ++viewer.RLIGHT;
+  ++faintStepCount;
+  animFrameStart = SDL_GetTicks(); // Start timer for next step
 }
 
 // Update faint animation (screen dims while heartbeat races)
@@ -1172,6 +1198,9 @@ bool dodGame::updateFaintAnimation() {
     // This uses unsigned byte wraparound (e.g., 0 -> 255 -> 254 -> ... -> 248)
     --viewer.MLIGHT;
     --viewer.UPDATE;
+    // Debug: log each faint step
+    printf("FAINT STEP %d: RLIGHT=%d (drawing), target=%d\n",
+           faintStepCount, (int)viewer.RLIGHT, faintTargetLight);
     viewer.draw_game();
     --viewer.RLIGHT;
     ++faintStepCount;
@@ -1181,6 +1210,8 @@ bool dodGame::updateFaintAnimation() {
     // Also add maximum step limit to prevent infinite loop
     if (viewer.RLIGHT == (dodBYTE)faintTargetLight || faintStepCount >= 256) {
       // Faint complete - ensure light levels are exactly at target (dark)
+      printf("FAINT COMPLETE: RLIGHT=%d after %d steps\n",
+             (int)viewer.RLIGHT, faintStepCount);
       viewer.RLIGHT = (dodBYTE)faintTargetLight;
       viewer.MLIGHT = (dodBYTE)faintTargetLight;
       --viewer.UPDATE;

@@ -319,9 +319,14 @@ void Player::HUPDAT() {
 #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
       // Non-blocking: request faint animation via state machine
       // This shows the heartbeat racing while screen dims
-      // Only start if not already in an animation
-      if (game.getState() == dodGame::STATE_PLAYING) {
-        game.requestFaintAnimation();
+      // Only start if not already in a faint/recover animation
+      // Note: faint can be triggered during move/turn animations (running causes fatigue)
+      {
+        dodGame::GameState currentState = game.getState();
+        if (currentState != dodGame::STATE_FAINT_ANIMATION &&
+            currentState != dodGame::STATE_RECOVER_ANIMATION) {
+          game.requestFaintAnimation();
+        }
       }
       return; // Animation will handle death check when complete
 #else
