@@ -232,6 +232,12 @@ bool Scheduler::SCHED() {
           break;
         case TID_HRTSLOW:
           result = player.HSLOW();
+          // HSLOW can trigger faint/recovery animation - exit scheduler immediately
+          // to prevent creature attacks during faint animation
+          if (game.getState() == dodGame::STATE_FAINT_ANIMATION ||
+              game.getState() == dodGame::STATE_RECOVER_ANIMATION) {
+            return false; // Exit scheduler, animation will run next frame
+          }
           break;
         case TID_TORCHBURN:
           result = player.BURNER();
@@ -246,6 +252,13 @@ bool Scheduler::SCHED() {
           break;
         }
         (void)result; // Suppress unused warning
+      }
+
+      // Check if faint/recovery animation started - stop processing tasks
+      // This prevents creatures from attacking during faint animations
+      if (game.getState() == dodGame::STATE_FAINT_ANIMATION ||
+          game.getState() == dodGame::STATE_RECOVER_ANIMATION) {
+        return false; // Animation running, don't process more tasks
       }
 
       // Check for save/load

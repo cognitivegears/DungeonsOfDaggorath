@@ -1127,7 +1127,9 @@ void dodGame::requestFaintAnimation() {
   faintIsDeath = false;
   faintStepCount = 0;
   faintStartLight = viewer.RLIGHT; // Save starting light for reference
-  animFrameStart = SDL_GetTicks();
+  // Set animFrameStart to 0 so first update triggers immediately
+  // This matches original behavior: decrement-draw-wait (not wait-decrement-draw)
+  animFrameStart = 0;
   animFrameDuration = 750; // 750ms per step, matching original
 }
 
@@ -1146,7 +1148,9 @@ void dodGame::requestRecoverAnimation() {
   }
   faintStartLight = viewer.RLIGHT; // Should be 248
 
-  animFrameStart = SDL_GetTicks();
+  // Set animFrameStart to 0 so first update triggers immediately
+  // This matches original behavior: draw-increment-wait (not wait-draw-increment)
+  animFrameStart = 0;
   animFrameDuration = 750; // 750ms per step, matching original
 }
 
