@@ -344,13 +344,9 @@ void Scheduler::CLOCK() {
             player.HEARTS = -1;
           }
           if (!player.turning) {
-            // Don't draw during faint/recover animations - the animation handles drawing
-            dodGame::GameState gstate = game.getState();
-            if (gstate != dodGame::STATE_FAINT_ANIMATION &&
-                gstate != dodGame::STATE_RECOVER_ANIMATION) {
-              --viewer.UPDATE;
-              viewer.draw_game();
-            }
+            // Draw to show heart animation (< > or { }) during faint too
+            --viewer.UPDATE;
+            viewer.draw_game();
           }
         }
       }

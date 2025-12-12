@@ -1106,6 +1106,11 @@ bool dodGame::updateMoveAnimation() {
       }
       player.PDAM += (player.POBJWT >> 3) + 3;
       player.HUPDAT();
+      // Check if HUPDAT triggered a faint - if so, exit move animation immediately
+      // The faint animation has already drawn its first frame
+      if (gameState == STATE_FAINT_ANIMATION) {
+        return false; // Faint animation now in control
+      }
       --viewer.UPDATE;
       viewer.draw_game();
       animFrameStart = now;
