@@ -166,6 +166,8 @@ public:
 	// Faint animation state
 	int faintTargetLight;        // Target RLIGHT value for faint (248) or recover (OLIGHT)
 	bool faintIsDeath;           // True if faint leads to death
+	int faintStepCount;          // Number of steps taken in faint/recover animation
+	int faintStartLight;         // Starting RLIGHT value when faint/recover began
 
 private:
 	// Internal state handlers

@@ -61,7 +61,7 @@ dodGame::dodGame()
       menuX(0), menuY(0), menuReturnValue(-1), menuComplete(false),
       animationType(ANIM_NONE), animFrame(0), animTotalFrames(0), animDir(0),
       animOffset(0), animFrameStart(0), animFrameDuration(0), animPhase(0), animMoveDir(0),
-      faintTargetLight(0), faintIsDeath(false) {
+      faintTargetLight(0), faintIsDeath(false), faintStepCount(0), faintStartLight(0) {
   Utils::LoadFromHex(DEMO_CMDS,
                      D_EXAMINE D_PULL_RIGHT D_TORCH D_USE_RIGHT D_LOOK D_MOVE
                          D_PULL_LEFT D_SHIELD D_PULL_RIGHT D_SWORD D_MOVE D_MOVE
@@ -1122,9 +1122,11 @@ bool dodGame::updateMoveAnimation() {
 // Request faint animation (non-blocking, heartbeat racing with screen dimming)
 void dodGame::requestFaintAnimation() {
   gameState = STATE_FAINT_ANIMATION;
-  // Match original sentinel (-8 => 248) so wrap-around completes faint
+  // Original target: signed -8 -> unsigned 248
   faintTargetLight = 248;
   faintIsDeath = false;
+  faintStepCount = 0;
+  faintStartLight = viewer.RLIGHT; // Save starting light for reference
   animFrameStart = SDL_GetTicks();
   animFrameDuration = 750; // 750ms per step, matching original
 }
@@ -1133,6 +1135,17 @@ void dodGame::requestFaintAnimation() {
 void dodGame::requestRecoverAnimation() {
   gameState = STATE_RECOVER_ANIMATION;
   faintTargetLight = viewer.OLIGHT; // Restore to original light level
+  faintStepCount = 0;
+
+  // IMPORTANT: PUPDAT may have reset RLIGHT between faint completion and recovery start.
+  // Ensure we start recovery from the fainted state (248 = dark).
+  // This matches original behavior where you stay dark until recovery animation runs.
+  if (viewer.RLIGHT != 248) {
+    viewer.RLIGHT = 248;
+    viewer.MLIGHT = 248;
+  }
+  faintStartLight = viewer.RLIGHT; // Should be 248
+
   animFrameStart = SDL_GetTicks();
   animFrameDuration = 750; // 750ms per step, matching original
 }
@@ -1151,16 +1164,21 @@ bool dodGame::updateFaintAnimation() {
 
   // Check if step duration elapsed
   if (now >= animFrameStart + animFrameDuration) {
-    // Step lighting with wrap to reach 248 like original loop
-    viewer.MLIGHT = static_cast<dodBYTE>(viewer.MLIGHT - 1);
-    viewer.RLIGHT = static_cast<dodBYTE>(viewer.RLIGHT - 1);
+    // Original behavior: decrement MLIGHT first, draw, then decrement RLIGHT
+    // This uses unsigned byte wraparound (e.g., 0 -> 255 -> 254 -> ... -> 248)
+    --viewer.MLIGHT;
     --viewer.UPDATE;
     viewer.draw_game();
+    --viewer.RLIGHT;
+    ++faintStepCount;
     animFrameStart = now;
 
-    // Check if faint animation complete
-    if (viewer.RLIGHT == (dodBYTE)faintTargetLight) {
-      // Faint complete
+    // Check if faint animation complete (original condition: RLIGHT == 248)
+    // Also add maximum step limit to prevent infinite loop
+    if (viewer.RLIGHT == (dodBYTE)faintTargetLight || faintStepCount >= 256) {
+      // Faint complete - ensure light levels are exactly at target (dark)
+      viewer.RLIGHT = (dodBYTE)faintTargetLight;
+      viewer.MLIGHT = (dodBYTE)faintTargetLight;
       --viewer.UPDATE;
       parser.KBDHDR = 0;
       parser.KBDTAL = 0;
@@ -1200,28 +1218,24 @@ bool dodGame::updateRecoverAnimation() {
     scheduler.EscCheck();
   }
 
-  // Draw current state
-  --viewer.UPDATE;
-  viewer.draw_game();
-
   // Check if step duration elapsed
   if (now >= animFrameStart + animFrameDuration) {
-    // Increment light levels without overflow (recover brightens back to OLIGHT)
-    if (viewer.MLIGHT < faintTargetLight) {
-      ++viewer.MLIGHT;
-    } else {
-      viewer.MLIGHT = faintTargetLight;
-    }
-    if (viewer.RLIGHT < faintTargetLight) {
-      ++viewer.RLIGHT;
-    } else {
-      viewer.RLIGHT = faintTargetLight;
-    }
+    // Original behavior: draw first, then increment both
+    // This uses unsigned byte wraparound (e.g., 248 -> 249 -> ... -> 255 -> 0 -> ... -> OLIGHT)
+    --viewer.UPDATE;
+    viewer.draw_game();
+    ++viewer.MLIGHT;
+    ++viewer.RLIGHT;
+    ++faintStepCount;
     animFrameStart = now;
 
-    // Check if recover animation complete
-    if (viewer.RLIGHT == viewer.OLIGHT) {
-      // Recovery complete
+    // Check if recover animation complete (original condition: RLIGHT == OLIGHT)
+    // Use saved faintTargetLight in case viewer.OLIGHT changed
+    // Also add maximum step limit to prevent infinite loop
+    if (viewer.RLIGHT == (dodBYTE)faintTargetLight || faintStepCount >= 256) {
+      // Recovery complete - ensure light levels are exactly at target
+      viewer.RLIGHT = (dodBYTE)faintTargetLight;
+      viewer.MLIGHT = (dodBYTE)faintTargetLight;
       player.FAINT = 0;
       viewer.PROMPT();
       --viewer.UPDATE;
