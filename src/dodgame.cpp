@@ -631,23 +631,40 @@ bool dodGame::updateMenu() {
         break;
       case FILE_MENU_CHEATS:
         // Handle cheat toggles - toggle the selected cheat and re-open submenu
-        if (result >= 0 && result <= 6) {
+        if (result >= 0 && result <= 5) {
           switch (result) {
-          case 0: ShieldFix = !ShieldFix; break;
-          case 1: g_cheats ^= CHEAT_ITEMS; break;
-          case 2: g_cheats ^= CHEAT_INVULNERABLE; break;
-          case 3: g_cheats ^= CHEAT_REGEN_SCALING; break;
-          case 4: g_cheats ^= CHEAT_REVEAL; break;
-          case 5: g_cheats ^= CHEAT_RING; break;
-          case 6: g_cheats ^= CHEAT_TORCH; break;
+          case 0: g_cheats ^= CHEAT_ITEMS; break;
+          case 1: g_cheats ^= CHEAT_INVULNERABLE; break;
+          case 2: g_cheats ^= CHEAT_REGEN_SCALING; break;
+          case 3: g_cheats ^= CHEAT_REVEAL; break;
+          case 4: g_cheats ^= CHEAT_RING; break;
+          case 5: g_cheats ^= CHEAT_TORCH; break;
           }
           // Re-open the cheats submenu by calling menu_return again
           oslink.menuPendingId = FILE_MENU_SWITCH;
           oslink.menuPendingItem = FILE_MENU_CHEATS;
-          static menu reopenMenu;
-          oslink.menuReturn(FILE_MENU_SWITCH, FILE_MENU_CHEATS, reopenMenu);
+          static menu reopenCheatsMenu;
+          oslink.menuReturn(FILE_MENU_SWITCH, FILE_MENU_CHEATS, reopenCheatsMenu);
         }
-        // result 7 (BACK) or -1 (ESC) - just return to main menu
+        // result 6 (BACK) or -1 (ESC) - just return to main menu
+        break;
+      case FILE_MENU_GAMEPLAY_MODS:
+        // Handle gameplay mod toggles - toggle the selected mod and re-open submenu
+        if (result >= 0 && result <= 4) {
+          switch (result) {
+          case 0: ShieldFix = !ShieldFix; break;
+          case 1: VisionScroll = !VisionScroll; break;
+          case 2: MarkDoorsOnScrollMaps = !MarkDoorsOnScrollMaps; break;
+          case 3: CreaturesIgnoreObjects = !CreaturesIgnoreObjects; break;
+          case 4: CreaturesInstaRegen = !CreaturesInstaRegen; break;
+          }
+          // Re-open the gameplay mods submenu by calling menu_return again
+          oslink.menuPendingId = FILE_MENU_SWITCH;
+          oslink.menuPendingItem = FILE_MENU_GAMEPLAY_MODS;
+          static menu reopenGameplayMenu;
+          oslink.menuReturn(FILE_MENU_SWITCH, FILE_MENU_GAMEPLAY_MODS, reopenGameplayMenu);
+        }
+        // result 5 (BACK) or -1 (ESC) - just return to main menu
         break;
       }
     }

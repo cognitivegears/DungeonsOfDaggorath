@@ -824,50 +824,88 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
 
     case FILE_MENU_CHEATS: {
       // Static to survive function return for non-blocking menu
-      // Build list with current status for each cheat/mod
-      static std::string cheatsMenuList[8];
-      cheatsMenuList[0] = (game.ShieldFix ? "[ON]  " : "[OFF] ");
-      cheatsMenuList[0] += "SHIELD FIX";
-      cheatsMenuList[1] = ((g_cheats & CHEAT_ITEMS) ? "[ON]  " : "[OFF] ");
-      cheatsMenuList[1] += "MITHRIL ITEMS";
-      cheatsMenuList[2] = ((g_cheats & CHEAT_INVULNERABLE) ? "[ON]  " : "[OFF] ");
-      cheatsMenuList[2] += "INVULNERABLE";
-      cheatsMenuList[3] = ((g_cheats & CHEAT_REGEN_SCALING) ? "[ON]  " : "[OFF] ");
-      cheatsMenuList[3] += "CREATURE SCALING";
-      cheatsMenuList[4] = ((g_cheats & CHEAT_REVEAL) ? "[ON]  " : "[OFF] ");
-      cheatsMenuList[4] += "EASY REVEAL";
-      cheatsMenuList[5] = ((g_cheats & CHEAT_RING) ? "[ON]  " : "[OFF] ");
-      cheatsMenuList[5] += "RING ALWAYS WORKS";
-      cheatsMenuList[6] = ((g_cheats & CHEAT_TORCH) ? "[ON]  " : "[OFF] ");
-      cheatsMenuList[6] += "TORCH ALWAYS LIT";
-      cheatsMenuList[7] = "BACK";
+      // Build list with current status for each cheat
+      static std::string cheatsMenuList[7];
+      cheatsMenuList[0] = ((g_cheats & CHEAT_ITEMS) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[0] += "MITHRIL ITEMS";
+      cheatsMenuList[1] = ((g_cheats & CHEAT_INVULNERABLE) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[1] += "INVULNERABLE";
+      cheatsMenuList[2] = ((g_cheats & CHEAT_REGEN_SCALING) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[2] += "CREATURE SCALING";
+      cheatsMenuList[3] = ((g_cheats & CHEAT_REVEAL) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[3] += "EASY REVEAL";
+      cheatsMenuList[4] = ((g_cheats & CHEAT_RING) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[4] += "RING ALWAYS WORKS";
+      cheatsMenuList[5] = ((g_cheats & CHEAT_TORCH) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[5] += "TORCH ALWAYS LIT";
+      cheatsMenuList[6] = "BACK";
 
       int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                             cheatsMenuList, 8);
+                             cheatsMenuList, 7);
+      if (result == -2) return false; // Pending - submenu started
+      switch (result) {
+      case 0: // Mithril Items
+        g_cheats ^= CHEAT_ITEMS;
+        break;
+      case 1: // Invulnerable
+        g_cheats ^= CHEAT_INVULNERABLE;
+        break;
+      case 2: // Creature Scaling
+        g_cheats ^= CHEAT_REGEN_SCALING;
+        break;
+      case 3: // Easy Reveal
+        g_cheats ^= CHEAT_REVEAL;
+        break;
+      case 4: // Ring Always Works
+        g_cheats ^= CHEAT_RING;
+        break;
+      case 5: // Torch Always Lit
+        g_cheats ^= CHEAT_TORCH;
+        break;
+      case 6: // Back
+        return false;
+      default:
+        return false;
+      }
+    }
+      return false;
+
+    case FILE_MENU_GAMEPLAY_MODS: {
+      // Static to survive function return for non-blocking menu
+      // Build list with current status for each gameplay mod
+      static std::string gameplayModsMenuList[6];
+      gameplayModsMenuList[0] = (game.ShieldFix ? "[ON]  " : "[OFF] ");
+      gameplayModsMenuList[0] += "SHIELD FIX";
+      gameplayModsMenuList[1] = (game.VisionScroll ? "[ON]  " : "[OFF] ");
+      gameplayModsMenuList[1] += "VISION SCROLL";
+      gameplayModsMenuList[2] = (game.MarkDoorsOnScrollMaps ? "[ON]  " : "[OFF] ");
+      gameplayModsMenuList[2] += "MARK DOORS ON MAPS";
+      gameplayModsMenuList[3] = (game.CreaturesIgnoreObjects ? "[ON]  " : "[OFF] ");
+      gameplayModsMenuList[3] += "CREATURES IGNORE OBJS";
+      gameplayModsMenuList[4] = (game.CreaturesInstaRegen ? "[ON]  " : "[OFF] ");
+      gameplayModsMenuList[4] += "CREATURES INSTA-REGEN";
+      gameplayModsMenuList[5] = "BACK";
+
+      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                             gameplayModsMenuList, 6);
       if (result == -2) return false; // Pending - submenu started
       switch (result) {
       case 0: // Shield Fix
         game.ShieldFix = !game.ShieldFix;
         break;
-      case 1: // Mithril Items
-        g_cheats ^= CHEAT_ITEMS;
+      case 1: // Vision Scroll
+        game.VisionScroll = !game.VisionScroll;
         break;
-      case 2: // Invulnerable
-        g_cheats ^= CHEAT_INVULNERABLE;
+      case 2: // Mark Doors on Maps
+        game.MarkDoorsOnScrollMaps = !game.MarkDoorsOnScrollMaps;
         break;
-      case 3: // Creature Scaling
-        g_cheats ^= CHEAT_REGEN_SCALING;
+      case 3: // Creatures Ignore Objects
+        game.CreaturesIgnoreObjects = !game.CreaturesIgnoreObjects;
         break;
-      case 4: // Easy Reveal
-        g_cheats ^= CHEAT_REVEAL;
+      case 4: // Creatures Insta-Regen
+        game.CreaturesInstaRegen = !game.CreaturesInstaRegen;
         break;
-      case 5: // Ring Always Works
-        g_cheats ^= CHEAT_RING;
-        break;
-      case 6: // Torch Always Lit
-        g_cheats ^= CHEAT_TORCH;
-        break;
-      case 7: // Back
+      case 5: // Back
         return false;
       default:
         return false;
