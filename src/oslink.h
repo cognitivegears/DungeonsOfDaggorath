@@ -47,6 +47,7 @@ public:
 	bool main_menu();       // used to implement the meta-menu
 	bool saveOptFile(void);
     void send_input(char * keys); // Send keys from external interfaces
+    void sendCommand(const char * cmd); // Send a command string and execute it
     void stop_demo(); // Stop the demo / start game
     void trigger_menu(); // Open in-game menu
     void render(void);

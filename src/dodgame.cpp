@@ -668,7 +668,7 @@ bool dodGame::updateMenu() {
         break;
       case FILE_MENU_GAMEPLAY_MODS:
         // Handle gameplay mod toggles - toggle the selected mod and re-open submenu
-        if (result >= 0 && result <= 5) {
+        if (result >= 0 && result <= 6) {
           switch (result) {
           case 0: ShieldFix = !ShieldFix; break;
           case 1: VisionScroll = !VisionScroll; break;
@@ -676,6 +676,7 @@ bool dodGame::updateMenu() {
           case 3: CreaturesIgnoreObjects = !CreaturesIgnoreObjects; break;
           case 4: CreaturesInstaRegen = !CreaturesInstaRegen; break;
           case 5: RandomMaze = !RandomMaze; break;
+          case 6: ModernControls = !ModernControls; ModernControlsExamineMode = false; break;
           }
           // Re-open the gameplay mods submenu by calling menu_return again
           oslink.menuPendingId = FILE_MENU_SWITCH;
@@ -687,7 +688,7 @@ bool dodGame::updateMenu() {
           // Return immediately to avoid drawing the main menu (prevents flash)
           return false;
         }
-        // result 6 (BACK) or -1 (ESC) - just return to main menu
+        // result 7 (BACK) or -1 (ESC) - just return to main menu
         break;
       case FILE_MENU_GAME_TIMING:
         // Check if this is a scrollbar result or a list selection

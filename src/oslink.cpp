@@ -659,6 +659,16 @@ void OS_Link::process_events() {
     case SDL_KEYDOWN:
       handle_key_down(&event.key.keysym);
       break;
+    case SDL_MOUSEBUTTONDOWN:
+      // Handle mouse clicks when Modern Controls is enabled
+      if (game.ModernControls && viewer.display_mode != Viewer::MODE_MAP) {
+        if (event.button.button == SDL_BUTTON_LEFT) {
+          sendCommand("A L");  // Attack left
+        } else if (event.button.button == SDL_BUTTON_RIGHT) {
+          sendCommand("A R");  // Attack right
+        }
+      }
+      break;
     case SDL_QUIT:
       quitSDL(0);
       break;
@@ -680,6 +690,21 @@ void OS_Link::send_input(char *keys) {
   for (int i = 0; keys[i] != '\0'; i++) {
     parser.KBDPUT((dodBYTE)keys[i]);
   }
+}
+
+// Send a command string as if typed and press Enter to execute it
+void OS_Link::sendCommand(const char *cmd) {
+  // Send each character of the command
+  for (int i = 0; cmd[i] != '\0'; i++) {
+    char c = cmd[i];
+    // Convert lowercase to uppercase (DOD uses uppercase)
+    if (c >= 'a' && c <= 'z') {
+      c = c - 'a' + 'A';
+    }
+    parser.KBDPUT((dodBYTE)c);
+  }
+  // Send carriage return to execute the command
+  parser.KBDPUT(parser.C_CR);
 }
 
 void OS_Link::stop_demo() {
@@ -731,6 +756,35 @@ void OS_Link::handle_key_down(SDL_Keysym *keysym) {
       break;
     }
   } else {
+    // Handle Modern Controls when enabled
+    if (game.ModernControls) {
+      switch (keysym->sym) {
+      case SDLK_UP:
+        sendCommand("M");  // Move forward
+        return;
+      case SDLK_DOWN:
+        sendCommand("M B");  // Move backward
+        return;
+      case SDLK_LEFT:
+        sendCommand("T L");  // Turn left
+        return;
+      case SDLK_RIGHT:
+        sendCommand("T R");  // Turn right
+        return;
+      case SDLK_TAB:
+        // Toggle between Examine and Look
+        if (game.ModernControlsExamineMode) {
+          sendCommand("L");  // Look
+        } else {
+          sendCommand("EX");  // Examine backpack
+        }
+        game.ModernControlsExamineMode = !game.ModernControlsExamineMode;
+        return;
+      default:
+        break; // Fall through to normal key handling
+      }
+    }
+
     switch (keysym->sym) {
     case SDLK_q:
     case SDLK_w:
@@ -1097,7 +1151,7 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
     case FILE_MENU_GAMEPLAY_MODS: {
       // Static to survive function return for non-blocking menu
       // Build list with current status for each gameplay mod
-      static std::string gameplayModsMenuList[7];
+      static std::string gameplayModsMenuList[8];
       gameplayModsMenuList[0] = (game.ShieldFix ? "[ON]  " : "[OFF] ");
       gameplayModsMenuList[0] += "SHIELD FIX";
       gameplayModsMenuList[1] = (game.VisionScroll ? "[ON]  " : "[OFF] ");
@@ -1110,10 +1164,12 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
       gameplayModsMenuList[4] += "CREATURES INSTA-REGEN";
       gameplayModsMenuList[5] = (game.RandomMaze ? "[ON]  " : "[OFF] ");
       gameplayModsMenuList[5] += "RANDOM MAZES";
-      gameplayModsMenuList[6] = "BACK";
+      gameplayModsMenuList[6] = (game.ModernControls ? "[ON]  " : "[OFF] ");
+      gameplayModsMenuList[6] += "MODERN CONTROLS";
+      gameplayModsMenuList[7] = "BACK";
 
       int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                             gameplayModsMenuList, 7);
+                             gameplayModsMenuList, 8);
       if (result == -2) return false; // Pending - submenu started
       switch (result) {
       case 0: // Shield Fix
@@ -1134,7 +1190,11 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
       case 5: // Random Mazes
         game.RandomMaze = !game.RandomMaze;
         break;
-      case 6: // Back
+      case 6: // Modern Controls
+        game.ModernControls = !game.ModernControls;
+        game.ModernControlsExamineMode = false; // Reset TAB toggle
+        break;
+      case 7: // Back
         return false;
       default:
         return false;
@@ -1524,6 +1584,9 @@ void OS_Link::loadOptFile(void) {
       } else if (!strcmp(inputString, "MarkDoorsOnScrollMaps")) {
         if (1 == sscanf(breakPoint, "%d", &in))
           game.MarkDoorsOnScrollMaps = in;
+      } else if (!strcmp(inputString, "ModernControls")) {
+        if (1 == sscanf(breakPoint, "%d", &in))
+          game.ModernControls = in;
       } else if (!strcmp(inputString, "Cheats")) {
         if (1 == sscanf(breakPoint, "%d", &in))
           g_cheats = in;
@@ -1585,6 +1648,7 @@ bool OS_Link::saveOptFile(void) {
   fout << "CreaturesIgnoreObjects=" << game.CreaturesIgnoreObjects << endl;
   fout << "CreaturesInstaRegen=" << game.CreaturesInstaRegen << endl;
   fout << "MarkDoorsOnScrollMaps=" << game.MarkDoorsOnScrollMaps << endl;
+  fout << "ModernControls=" << game.ModernControls << endl;
   fout << "Cheats=" << g_cheats << endl;
 
   fout.close();
@@ -1613,6 +1677,16 @@ void OS_Link::loadDefaults(void) {
   g_options &= ~(OPT_VECTOR | OPT_HIRES);
   g_options |= OPT_STEREO;
   g_cheats = 0;
+
+  // Initialize gameplay mod settings
+  game.RandomMaze = false;
+  game.ShieldFix = false;
+  game.VisionScroll = false;
+  game.CreaturesIgnoreObjects = false;
+  game.CreaturesInstaRegen = false;
+  game.MarkDoorsOnScrollMaps = false;
+  game.ModernControls = false;
+  game.ModernControlsExamineMode = false;
 }
 
 /******************************************************************************

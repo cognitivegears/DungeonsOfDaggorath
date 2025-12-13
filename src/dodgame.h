@@ -106,6 +106,8 @@ public:
 	bool	CreaturesIgnoreObjects;
 	bool	CreaturesInstaRegen;
 	bool	MarkDoorsOnScrollMaps;
+	bool	ModernControls;		// Arrow keys, TAB, mouse clicks for controls
+	bool	ModernControlsExamineMode; // Toggle for TAB: true=EX, false=L
 	bool	AUTFLG;	// Autoplay (demo) flag
 	bool	hasWon;
 	bool	demoRestart;
