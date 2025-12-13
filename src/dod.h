@@ -526,7 +526,7 @@ namespace Utils{
   Note: implementation of commands is at OS_Link::menu_return
 *******************************************************************/
 #define NUM_MENU   1
-#define NUM_FILE   13
+#define NUM_FILE   14
 #define NUM_LENGTH 35
 
 #define FILE_MENU_SWITCH   0
@@ -543,7 +543,8 @@ namespace Utils{
 #define FILE_MENU_SND_MODE       9
 #define FILE_MENU_SAVE_OPT      10
 #define FILE_MENU_DEFAULTS      11
-#define FILE_MENU_BUILD_INFO    12
+#define FILE_MENU_CHEATS        12
+#define FILE_MENU_BUILD_INFO    13
 
 class menu
 {
@@ -573,7 +574,8 @@ public:
 	 strncpy(&FILE_MENU[FILE_MENU_SND_MODE][0], "SOUND MODES", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_SAVE_OPT][0], "SAVE CURRENT OPTIONS", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_DEFAULTS][0], "RESTORE DEFAULTS", NUM_LENGTH);
-	strncpy(&FILE_MENU[FILE_MENU_BUILD_INFO][0], "BUILD", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_CHEATS][0], "CHEATS / MODS", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_BUILD_INFO][0], "BUILD", NUM_LENGTH);
 	 }
 
 	char *getMenuName(int menu_id)

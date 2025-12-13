@@ -820,8 +820,60 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
 
     case FILE_MENU_DEFAULTS:
       loadDefaults();
-      changeVideoRes(width);
       return true;
+
+    case FILE_MENU_CHEATS: {
+      // Static to survive function return for non-blocking menu
+      // Build list with current status for each cheat/mod
+      static std::string cheatsMenuList[8];
+      cheatsMenuList[0] = (game.ShieldFix ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[0] += "SHIELD FIX";
+      cheatsMenuList[1] = ((g_cheats & CHEAT_ITEMS) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[1] += "MITHRIL ITEMS";
+      cheatsMenuList[2] = ((g_cheats & CHEAT_INVULNERABLE) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[2] += "INVULNERABLE";
+      cheatsMenuList[3] = ((g_cheats & CHEAT_REGEN_SCALING) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[3] += "CREATURE SCALING";
+      cheatsMenuList[4] = ((g_cheats & CHEAT_REVEAL) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[4] += "EASY REVEAL";
+      cheatsMenuList[5] = ((g_cheats & CHEAT_RING) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[5] += "RING ALWAYS WORKS";
+      cheatsMenuList[6] = ((g_cheats & CHEAT_TORCH) ? "[ON]  " : "[OFF] ");
+      cheatsMenuList[6] += "TORCH ALWAYS LIT";
+      cheatsMenuList[7] = "BACK";
+
+      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                             cheatsMenuList, 8);
+      if (result == -2) return false; // Pending - submenu started
+      switch (result) {
+      case 0: // Shield Fix
+        game.ShieldFix = !game.ShieldFix;
+        break;
+      case 1: // Mithril Items
+        g_cheats ^= CHEAT_ITEMS;
+        break;
+      case 2: // Invulnerable
+        g_cheats ^= CHEAT_INVULNERABLE;
+        break;
+      case 3: // Creature Scaling
+        g_cheats ^= CHEAT_REGEN_SCALING;
+        break;
+      case 4: // Easy Reveal
+        g_cheats ^= CHEAT_REVEAL;
+        break;
+      case 5: // Ring Always Works
+        g_cheats ^= CHEAT_RING;
+        break;
+      case 6: // Torch Always Lit
+        g_cheats ^= CHEAT_TORCH;
+        break;
+      case 7: // Back
+        return false;
+      default:
+        return false;
+      }
+    }
+      return false;
 
     case FILE_MENU_BUILD_INFO:
       return false;
@@ -1186,6 +1238,9 @@ void OS_Link::loadOptFile(void) {
       } else if (!strcmp(inputString, "MarkDoorsOnScrollMaps")) {
         if (1 == sscanf(breakPoint, "%d", &in))
           game.MarkDoorsOnScrollMaps = in;
+      } else if (!strcmp(inputString, "Cheats")) {
+        if (1 == sscanf(breakPoint, "%d", &in))
+          g_cheats = in;
       }
     }
 
@@ -1244,6 +1299,7 @@ bool OS_Link::saveOptFile(void) {
   fout << "CreaturesIgnoreObjects=" << game.CreaturesIgnoreObjects << endl;
   fout << "CreaturesInstaRegen=" << game.CreaturesInstaRegen << endl;
   fout << "MarkDoorsOnScrollMaps=" << game.MarkDoorsOnScrollMaps << endl;
+  fout << "Cheats=" << g_cheats << endl;
 
   fout.close();
 
@@ -1270,6 +1326,7 @@ void OS_Link::loadDefaults(void) {
 
   g_options &= ~(OPT_VECTOR | OPT_HIRES);
   g_options |= OPT_STEREO;
+  g_cheats = 0;
 }
 
 /******************************************************************************
