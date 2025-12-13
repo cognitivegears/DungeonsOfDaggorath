@@ -645,6 +645,10 @@ bool dodGame::updateMenu() {
           oslink.menuPendingItem = FILE_MENU_CHEATS;
           static menu reopenCheatsMenu;
           oslink.menuReturn(FILE_MENU_SWITCH, FILE_MENU_CHEATS, reopenCheatsMenu);
+          // Restore the selection position so user stays on the same item
+          menuListChoice = result;
+          // Return immediately to avoid drawing the main menu (prevents flash)
+          return false;
         }
         // result 6 (BACK) or -1 (ESC) - just return to main menu
         break;
@@ -663,6 +667,10 @@ bool dodGame::updateMenu() {
           oslink.menuPendingItem = FILE_MENU_GAMEPLAY_MODS;
           static menu reopenGameplayMenu;
           oslink.menuReturn(FILE_MENU_SWITCH, FILE_MENU_GAMEPLAY_MODS, reopenGameplayMenu);
+          // Restore the selection position so user stays on the same item
+          menuListChoice = result;
+          // Return immediately to avoid drawing the main menu (prevents flash)
+          return false;
         }
         // result 5 (BACK) or -1 (ESC) - just return to main menu
         break;
@@ -685,7 +693,8 @@ bool dodGame::updateMenu() {
     switch (event.type) {
     case SDL_KEYDOWN:
       switch (event.key.keysym.sym) {
-      case SDLK_RETURN: {
+      case SDLK_RETURN:
+      case SDLK_SPACE: {
         // Handle menu selection
         // Store pending context before calling menu return
         oslink.menuPendingId = menuCol;
@@ -763,6 +772,7 @@ bool dodGame::updateMenuList() {
     case SDL_KEYDOWN:
       switch (event.key.keysym.sym) {
       case SDLK_RETURN:
+      case SDLK_SPACE:
         menuReturnValue = menuListChoice;
         menuComplete = true;
         gameState = STATE_MENU;
@@ -808,7 +818,8 @@ bool dodGame::updateMenuScrollbar() {
     switch (event.type) {
     case SDL_KEYDOWN:
       switch (event.key.keysym.sym) {
-      case SDLK_RETURN: {
+      case SDLK_RETURN:
+      case SDLK_SPACE: {
         if (menuScrollPosition == menuOriginalScrollPos) {
           menuReturnValue = menuScrollMin + (menuOriginalScrollPos * (menuScrollMax - menuScrollMin) / 31);
         } else {

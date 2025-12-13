@@ -603,6 +603,7 @@ bool OS_Link::main_menu() {
       bool redraw = false;
       switch (event.key.keysym.sym) {
       case SDLK_RETURN:
+      case SDLK_SPACE:
         end = menu_return(col, row, mainMenu);
         if (col == FILE_MENU_SWITCH && row == FILE_MENU_NEW) {
           return true;
@@ -964,6 +965,7 @@ int OS_Link::menu_list(int x, int y, char *title, std::string list[],
       case SDL_KEYDOWN:
         switch (event.key.keysym.sym) {
         case SDLK_RETURN:
+        case SDLK_SPACE:
           return (currentChoice);
           break;
 
@@ -1053,7 +1055,8 @@ int OS_Link::menu_scrollbar(std::string title, int min, int max, int current) {
       switch (event.type) {
       case SDL_KEYDOWN:
         switch (event.key.keysym.sym) {
-        case SDLK_RETURN: {
+        case SDLK_RETURN:
+        case SDLK_SPACE: {
           if (position == originalPosition) {
             return oldvalue;
           }
