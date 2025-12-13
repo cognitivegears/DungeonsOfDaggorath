@@ -579,9 +579,50 @@ bool dodGame::updateMenu() {
 
     bool closeMenu = false; // Whether to close menu after applying result
 
+    // Track which timing option was selected for GAME_TIMING submenu
+    static int gameTimingSelection = -1;
+
     // Apply result based on which menu item triggered it
     if (pendingId == FILE_MENU_SWITCH) {
       switch (pendingItem) {
+      case FILE_MENU_LOAD_GAME: {
+        // Get the list of saves again to find the selected one
+        std::vector<std::string> saves = oslink.listSavedGames();
+        int numSaves = std::min(static_cast<int>(saves.size()), 10);
+        if (result >= 0 && result < numSaves) {
+          // User selected a saved game - trigger load
+          if (oslink.loadSavedGame(saves[result])) {
+            closeMenu = true; // Close menu and trigger load
+          }
+        }
+        // BACK or no saves - stay in menu
+        break;
+      }
+      case FILE_MENU_SAVE_GAME: {
+        // Result is from menu_string - the buffer contains the entered name
+        // The buffer is oslink.saveNameBuffer (menuStringBuffer points to it)
+        if (strlen(oslink.saveNameBuffer) > 0) {
+          // Save the game with the entered name
+          std::string saveName(oslink.saveNameBuffer);
+          if (oslink.saveGameWithName(saveName)) {
+            // Save triggered - return to game
+            closeMenu = true;
+          }
+        }
+        // Empty name or cancelled - return to menu
+        break;
+      }
+      case FILE_MENU_DELETE_SAVE: {
+        // Get the list of saves again to find the selected one
+        std::vector<std::string> saves = oslink.listSavedGames();
+        int numSaves = std::min(static_cast<int>(saves.size()), 10);
+        if (result >= 0 && result < numSaves) {
+          // User selected a save to delete
+          oslink.deleteSavedGame(saves[result]);
+        }
+        // Return to menu after delete or BACK
+        break;
+      }
       case FILE_MENU_GRAPHICS:
         if (result >= 0) {
           switch (result) {
@@ -592,36 +633,9 @@ bool dodGame::updateMenu() {
           closeMenu = true; // Graphics selection closes menu
         }
         break;
-      case FILE_MENU_CREATURE_SPEED:
-        if (result != creature.creSpeedMul) {
-          creature.creSpeedMul = result;
-          creature.UpdateCreSpeed();
-        }
-        // Does not close menu
-        break;
-      case FILE_MENU_TURN_DELAY:
-        player.turnDelay = result;
-        // Does not close menu
-        break;
-      case FILE_MENU_MOVE_DELAY:
-        player.moveDelay = result;
-        // Does not close menu
-        break;
-      case FILE_MENU_CREATURE_REGEN:
-        if (result != oslink.creatureRegen) {
-          oslink.creatureRegen = result;
-          scheduler.updateCreatureRegen(oslink.creatureRegen);
-        }
-        // Does not close menu
-        break;
       case FILE_MENU_VOLUME:
         oslink.volumeLevel = result;
         Mix_Volume(-1, static_cast<int>((oslink.volumeLevel * MIX_MAX_VOLUME) / 128));
-        // Does not close menu
-        break;
-      case FILE_MENU_RANDOM_MAZE:
-        if (result == 0) RandomMaze = true;
-        else if (result == 1) RandomMaze = false;
         // Does not close menu
         break;
       case FILE_MENU_SND_MODE:
@@ -654,13 +668,14 @@ bool dodGame::updateMenu() {
         break;
       case FILE_MENU_GAMEPLAY_MODS:
         // Handle gameplay mod toggles - toggle the selected mod and re-open submenu
-        if (result >= 0 && result <= 4) {
+        if (result >= 0 && result <= 5) {
           switch (result) {
           case 0: ShieldFix = !ShieldFix; break;
           case 1: VisionScroll = !VisionScroll; break;
           case 2: MarkDoorsOnScrollMaps = !MarkDoorsOnScrollMaps; break;
           case 3: CreaturesIgnoreObjects = !CreaturesIgnoreObjects; break;
           case 4: CreaturesInstaRegen = !CreaturesInstaRegen; break;
+          case 5: RandomMaze = !RandomMaze; break;
           }
           // Re-open the gameplay mods submenu by calling menu_return again
           oslink.menuPendingId = FILE_MENU_SWITCH;
@@ -672,7 +687,65 @@ bool dodGame::updateMenu() {
           // Return immediately to avoid drawing the main menu (prevents flash)
           return false;
         }
-        // result 5 (BACK) or -1 (ESC) - just return to main menu
+        // result 6 (BACK) or -1 (ESC) - just return to main menu
+        break;
+      case FILE_MENU_GAME_TIMING:
+        // Check if this is a scrollbar result or a list selection
+        if (gameTimingSelection >= 0) {
+          // This is a scrollbar result - apply to the appropriate setting
+          switch (gameTimingSelection) {
+          case 0: // Creature Speed
+            if (result != creature.creSpeedMul) {
+              creature.creSpeedMul = result;
+              creature.UpdateCreSpeed();
+            }
+            break;
+          case 1: // Turn Delay
+            player.turnDelay = result;
+            break;
+          case 2: // Move Delay
+            player.moveDelay = result;
+            break;
+          case 3: // Creature Regen
+            if (result != oslink.creatureRegen) {
+              oslink.creatureRegen = result;
+              scheduler.updateCreatureRegen(oslink.creatureRegen);
+            }
+            break;
+          }
+          // Re-open the game timing submenu
+          int savedSelection = gameTimingSelection;
+          gameTimingSelection = -1; // Reset for next time
+          oslink.menuPendingId = FILE_MENU_SWITCH;
+          oslink.menuPendingItem = FILE_MENU_GAME_TIMING;
+          static menu reopenTimingMenu;
+          oslink.menuReturn(FILE_MENU_SWITCH, FILE_MENU_GAME_TIMING, reopenTimingMenu);
+          // Restore the selection position
+          menuListChoice = savedSelection;
+          return false;
+        } else if (result >= 0 && result <= 3) {
+          // This is a list selection - open the appropriate scrollbar
+          gameTimingSelection = result;
+          oslink.menuPendingId = FILE_MENU_SWITCH;
+          oslink.menuPendingItem = FILE_MENU_GAME_TIMING;
+          switch (result) {
+          case 0: // Creature Speed
+            oslink.menu_scrollbar("CREATURE SPEED", 50, 300, creature.creSpeedMul);
+            break;
+          case 1: // Turn Delay
+            oslink.menu_scrollbar("TURN DELAY", 10, 200, player.turnDelay);
+            break;
+          case 2: // Move Delay
+            oslink.menu_scrollbar("MOVE DELAY", 100, 1000, player.moveDelay);
+            break;
+          case 3: // Creature Regen
+            oslink.menu_scrollbar("CREATURE REGEN (MIN)", 1, 10, oslink.creatureRegen);
+            break;
+          }
+          return false;
+        }
+        // result 4 (BACK) or -1 (ESC) - just return to main menu
+        gameTimingSelection = -1; // Reset
         break;
       }
     }

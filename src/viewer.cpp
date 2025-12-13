@@ -2266,29 +2266,8 @@ void Viewer::drawMenu(menu mainMenu, int menu_id, int highlight) {
         displayText += "NORMAL";
       break;
 
-    case FILE_MENU_CREATURE_SPEED:
-      displayText += ": " + std::to_string(creature.creSpeedMul) + "%";
-      break;
-
-    case FILE_MENU_TURN_DELAY:
-      displayText += ": " + std::to_string(player.turnDelay) + " MS";
-      break;
-
-    case FILE_MENU_MOVE_DELAY:
-      displayText += ": " + std::to_string(player.moveDelay) + " MS";
-      break;
-
-    case FILE_MENU_CREATURE_REGEN:
-      displayText += ": " + std::to_string(oslink.creatureRegen) + " MIN";
-      break;
-
     case FILE_MENU_VOLUME:
       displayText += ": " + std::to_string(oslink.volumeLevel);
-      break;
-
-    case FILE_MENU_RANDOM_MAZE:
-      displayText += ": ";
-      displayText += game.RandomMaze ? "ON" : "OFF";
       break;
 
     case FILE_MENU_SND_MODE:

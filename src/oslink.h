@@ -25,6 +25,7 @@ is held by Douglas J. Morgan.
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 #include <string>
+#include <vector>
 
 
  // Arbitrary Length of 80, maybe be changed if needed
@@ -50,6 +51,12 @@ public:
     void trigger_menu(); // Open in-game menu
     void render(void);
     bool menuReturn(int, int, menu); // Non-blocking wrapper for main menu handling
+	int  menu_scrollbar(std::string title, int min, int max, int current);
+	std::vector<std::string> listSavedGames(); // List .dod files in saved directory
+	bool loadSavedGame(const std::string& filename); // Load a saved game by filename
+	bool saveGameWithName(const std::string& filename); // Save game with given name
+	bool deleteSavedGame(const std::string& filename); // Delete a saved game
+	void syncSavedGames(); // Sync saved games to persistent storage (IndexedDB)
 	const std::string& getBuildVersion() const;
 	const std::string& getBuildTimestamp() const;
 	const std::string& getBuildInfo() const;
@@ -78,6 +85,7 @@ public:
 	char	confDir[5];
 	char	soundDir[6];
 	char	savedDir[MAX_FILENAME_LENGTH + 1];
+	char	saveNameBuffer[20];  // Buffer for save name input from menu
 	dodBYTE	keys[256];
 	int		keylayout;	// 0 = QWERTY, 1 = Dvorak
 	int		keyLen;
@@ -96,8 +104,6 @@ private:
 	//int  menu_list(int x, int y, char *title, char *list[], int listSize);
 	int  menu_list(int x, int y, char *title, std::string list[], int listSize);
 	void menu_string(char *newString, char *title, int maxLength);
-	//int  menu_scrollbar(char *title, int min, int max, int current);
-	int  menu_scrollbar(std::string title, int min, int max, int current);
 	void loadOptFile(void);
 	void loadDefaults(void);
 	void changeFullScreen(void);

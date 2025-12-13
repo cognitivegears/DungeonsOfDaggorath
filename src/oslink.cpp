@@ -17,6 +17,7 @@ is held by Douglas J. Morgan.
 #include <algorithm>
 #include <cmath>
 #include <cctype>
+#include <dirent.h>
 #include <fstream>
 #include <iostream>
 
@@ -149,6 +150,7 @@ OS_Link::OS_Link()
   strcpy(soundDir, "sound");
   strcpy(savedDir, "saved");
   memset(gamefile, 0, gamefileLen);
+  memset(saveNameBuffer, 0, sizeof(saveNameBuffer));
 
   const std::string timestampForMenu = formatTimestampForMenu(buildTimestamp);
   buildInfo = sanitizeForMenu(buildVersion);
@@ -169,6 +171,163 @@ const std::string &OS_Link::getBuildVersion() const { return buildVersion; }
 const std::string &OS_Link::getBuildTimestamp() const { return buildTimestamp; }
 
 const std::string &OS_Link::getBuildInfo() const { return buildInfo; }
+
+void OS_Link::syncSavedGames() {
+#ifdef __EMSCRIPTEN__
+  // Copy saves to persistent storage and sync to IndexedDB
+  EM_ASM({
+    try {
+      // Copy all .dod files from /saved to /saved_persistent
+      var files = FS.readdir('/saved');
+      for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        if (file !== '.' && file !== '..' && file.endsWith('.dod')) {
+          try {
+            var data = FS.readFile('/saved/' + file);
+            FS.writeFile('/saved_persistent/' + file, data);
+          } catch(e) {
+            console.log('Error copying ' + file + ' to persistent storage:', e);
+          }
+        }
+      }
+      // Sync to IndexedDB (populate = false means write to persistent storage)
+      FS.syncfs(false, function(err) {
+        if (err) {
+          console.log('Error syncing saved games to IndexedDB:', err);
+        } else {
+          console.log('Saved games synced to IndexedDB');
+        }
+      });
+    } catch(e) {
+      console.log('Error during save sync:', e);
+    }
+  });
+#endif
+}
+
+std::vector<std::string> OS_Link::listSavedGames() {
+  std::vector<std::string> saves;
+  DIR *dir;
+  struct dirent *ent;
+
+  if ((dir = opendir(savedDir)) != NULL) {
+    while ((ent = readdir(dir)) != NULL) {
+      std::string filename = ent->d_name;
+      // Check if file ends with .dod
+      if (filename.length() > 4 &&
+          filename.substr(filename.length() - 4) == ".dod") {
+        // Remove the .dod extension for display
+        std::string displayName = filename.substr(0, filename.length() - 4);
+        // Convert to uppercase for consistency with game style
+        for (char &c : displayName) {
+          c = toupper(c);
+        }
+        saves.push_back(displayName);
+      }
+    }
+    closedir(dir);
+  }
+
+  // Sort alphabetically
+  std::sort(saves.begin(), saves.end());
+
+  return saves;
+}
+
+bool OS_Link::loadSavedGame(const std::string& filename) {
+  // Build the full path
+  memset(gamefile, 0, gamefileLen);
+  strcpy(gamefile, savedDir);
+  strcat(gamefile, pathSep);
+
+  // First try the display name as-is (for files created by ZSAVE which are uppercase)
+  std::string actualFilename = filename;
+  strcat(gamefile, actualFilename.c_str());
+  strcat(gamefile, ".dod");
+
+  // Check if file exists with this name
+  FILE *fptr = fopen(gamefile, "r");
+  if (fptr == NULL) {
+    // Try lowercase version (for preloaded files like game.dod)
+    memset(gamefile, 0, gamefileLen);
+    strcpy(gamefile, savedDir);
+    strcat(gamefile, pathSep);
+    std::string lowerFilename = filename;
+    for (char &c : lowerFilename) {
+      c = tolower(c);
+    }
+    strcat(gamefile, lowerFilename.c_str());
+    strcat(gamefile, ".dod");
+
+    // Final check with lowercase name
+    fptr = fopen(gamefile, "r");
+    if (fptr == NULL) {
+      return false;
+    }
+  }
+  fclose(fptr);
+
+  // Trigger the load by decrementing ZFLAG (same as PZLOAD)
+  --scheduler.ZFLAG;
+  return true;
+}
+
+bool OS_Link::saveGameWithName(const std::string& filename) {
+  // Build the full path - use uppercase like ZSAVE does
+  memset(gamefile, 0, gamefileLen);
+  strcpy(gamefile, savedDir);
+  strcat(gamefile, pathSep);
+
+  // Convert to uppercase for consistency with ZSAVE
+  std::string upperFilename = filename;
+  for (char &c : upperFilename) {
+    c = toupper(c);
+  }
+  strcat(gamefile, upperFilename.c_str());
+  strcat(gamefile, ".dod");
+
+  // Trigger the save by incrementing ZFLAG (same as PZSAVE)
+  ++scheduler.ZFLAG;
+  return true;
+}
+
+bool OS_Link::deleteSavedGame(const std::string& filename) {
+  char filepath[MAX_FILENAME_LENGTH];
+
+  // Try uppercase version first (files created by ZSAVE)
+  memset(filepath, 0, MAX_FILENAME_LENGTH);
+  strcpy(filepath, savedDir);
+  strcat(filepath, pathSep);
+  std::string upperFilename = filename;
+  for (char &c : upperFilename) {
+    c = toupper(c);
+  }
+  strcat(filepath, upperFilename.c_str());
+  strcat(filepath, ".dod");
+
+  if (remove(filepath) == 0) {
+    syncSavedGames(); // Sync deletion to persistent storage
+    return true;
+  }
+
+  // Try lowercase version (for preloaded files like game.dod)
+  memset(filepath, 0, MAX_FILENAME_LENGTH);
+  strcpy(filepath, savedDir);
+  strcat(filepath, pathSep);
+  std::string lowerFilename = filename;
+  for (char &c : lowerFilename) {
+    c = tolower(c);
+  }
+  strcat(filepath, lowerFilename.c_str());
+  strcat(filepath, ".dod");
+
+  if (remove(filepath) == 0) {
+    syncSavedGames(); // Sync deletion to persistent storage
+    return true;
+  }
+
+  return false;
+}
 
 void OS_Link::render() {
   // All states go through the state machine
@@ -299,6 +458,46 @@ static void myError(GLenum error) {
 // uses defaults set by loadDefaults function (1024x768)
 void OS_Link::init() {
   loadOptFile();
+
+#ifdef __EMSCRIPTEN__
+  // Set up IDBFS for persistent saved games
+  EM_ASM({
+    // Mount IDBFS to /saved directory for persistent storage
+    try {
+      FS.mkdir('/saved_persistent');
+    } catch(e) {
+      // Directory might already exist
+    }
+    FS.mount(IDBFS, {}, '/saved_persistent');
+
+    // Sync from IndexedDB to memory (populate = true)
+    FS.syncfs(true, function(err) {
+      if (err) {
+        console.log('Error loading saved games from IndexedDB:', err);
+      } else {
+        console.log('Saved games loaded from IndexedDB');
+        // Copy any persisted saves to the /saved directory
+        try {
+          var files = FS.readdir('/saved_persistent');
+          for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            if (file !== '.' && file !== '..' && file.endsWith('.dod')) {
+              try {
+                var data = FS.readFile('/saved_persistent/' + file);
+                FS.writeFile('/saved/' + file, data);
+                console.log('Restored save: ' + file);
+              } catch(e) {
+                console.log('Error copying ' + file + ':', e);
+              }
+            }
+          }
+        } catch(e) {
+          console.log('Error reading saved_persistent:', e);
+        }
+      }
+    });
+  });
+#endif
 
   std::cout << "DOD build info: " << buildInfo << std::endl;
 
@@ -707,6 +906,85 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
     case FILE_MENU_RETURN:
       return true;
 
+    case FILE_MENU_LOAD_GAME: {
+      // Get list of saved games
+      std::vector<std::string> saves = listSavedGames();
+
+      if (saves.empty()) {
+        // No saved games found - show message
+        static std::string noSavesMenuList[] = {"NO SAVED GAMES FOUND", "BACK"};
+        int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                               noSavesMenuList, 2);
+        if (result == -2) return false; // Pending - submenu started
+        return false; // Return to main menu
+      }
+
+      // Build menu list from saved games (max 10 saves + BACK)
+      static std::string savedGamesMenuList[11];
+      int numSaves = std::min(static_cast<int>(saves.size()), 10);
+      for (int i = 0; i < numSaves; i++) {
+        savedGamesMenuList[i] = saves[i];
+      }
+      savedGamesMenuList[numSaves] = "BACK";
+
+      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                             savedGamesMenuList, numSaves + 1);
+      if (result == -2) return false; // Pending - submenu started
+
+      if (result >= 0 && result < numSaves) {
+        // User selected a saved game - trigger load
+        if (loadSavedGame(saves[result])) {
+          scheduler.pause(false);
+          return true; // Close menu and trigger load
+        }
+      }
+      // BACK or ESC - return to main menu
+      return false;
+    }
+
+    case FILE_MENU_SAVE_GAME: {
+      // Clear the save name buffer
+      memset(saveNameBuffer, 0, sizeof(saveNameBuffer));
+
+      // Show text input for save name
+      menu_string(saveNameBuffer, const_cast<char*>("ENTER SAVE NAME"), 15);
+      // In non-blocking mode, this returns and we handle result in dodgame.cpp
+      return false;
+    }
+
+    case FILE_MENU_DELETE_SAVE: {
+      // Get list of saved games
+      std::vector<std::string> saves = listSavedGames();
+
+      if (saves.empty()) {
+        // No saved games found - show message
+        static std::string noSavesMenuList[] = {"NO SAVED GAMES FOUND", "BACK"};
+        int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                               noSavesMenuList, 2);
+        if (result == -2) return false; // Pending - submenu started
+        return false; // Return to main menu
+      }
+
+      // Build menu list from saved games (max 10 saves + BACK)
+      static std::string deleteSaveMenuList[11];
+      int numSaves = std::min(static_cast<int>(saves.size()), 10);
+      for (int i = 0; i < numSaves; i++) {
+        deleteSaveMenuList[i] = saves[i];
+      }
+      deleteSaveMenuList[numSaves] = "BACK";
+
+      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                             deleteSaveMenuList, numSaves + 1);
+      if (result == -2) return false; // Pending - submenu started
+
+      if (result >= 0 && result < numSaves) {
+        // User selected a save to delete
+        deleteSavedGame(saves[result]);
+      }
+      // Return to main menu after delete or BACK
+      return false;
+    }
+
     case FILE_MENU_GRAPHICS: {
       // Static to survive function return for non-blocking menu
       static std::string graphicsMenuList[] = {"NORMAL GRAPHICS", "HIRES GRAPHICS",
@@ -733,66 +1011,11 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
     }
       return true;
 
-    case FILE_MENU_CREATURE_SPEED: {
-      int newSpeed =
-          menu_scrollbar("CREATURE SPEED", 50, 300, creature.creSpeedMul);
-      if (newSpeed == -2) return false; // Pending - submenu started
-      if (newSpeed != creature.creSpeedMul) {
-        creature.creSpeedMul = newSpeed;
-        creature.UpdateCreSpeed();
-      }
-    }
-      return false;
-
-    case FILE_MENU_TURN_DELAY: {
-      int newDelay = menu_scrollbar("TURN DELAY", 10, 200, player.turnDelay);
-      if (newDelay == -2) return false; // Pending - submenu started
-      player.turnDelay = newDelay;
-    }
-      return false;
-
-    case FILE_MENU_MOVE_DELAY: {
-      int newDelay = menu_scrollbar("MOVE DELAY", 100, 1000, player.moveDelay);
-      if (newDelay == -2) return false; // Pending - submenu started
-      player.moveDelay = newDelay;
-    }
-      return false;
-
-    case FILE_MENU_CREATURE_REGEN: {
-      int newRegen =
-          menu_scrollbar("CREATURE REGEN (MIN)", 1, 10, creatureRegen);
-      if (newRegen == -2) return false; // Pending - submenu started
-      if (newRegen != creatureRegen) {
-        creatureRegen = newRegen;
-        scheduler.updateCreatureRegen(creatureRegen);
-      }
-    }
-      return false;
-
     case FILE_MENU_VOLUME: {
       int newVolume = menu_scrollbar("VOLUME LEVEL", 0, 128, volumeLevel);
       if (newVolume == -2) return false; // Pending - submenu started
       volumeLevel = newVolume;
       Mix_Volume(-1, static_cast<int>((volumeLevel * MIX_MAX_VOLUME) / 128));
-    }
-      return false;
-
-    case FILE_MENU_RANDOM_MAZE: {
-      // Static to survive function return for non-blocking menu
-      static std::string randomMazeMenuList[] = {"ON", "OFF"};
-      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                             randomMazeMenuList, 2);
-      if (result == -2) return false; // Pending - submenu started
-      switch (result) {
-      case 0:
-        game.RandomMaze = true;
-        break;
-      case 1:
-        game.RandomMaze = false;
-        break;
-      default:
-        return false;
-      }
     }
       return false;
 
@@ -874,7 +1097,7 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
     case FILE_MENU_GAMEPLAY_MODS: {
       // Static to survive function return for non-blocking menu
       // Build list with current status for each gameplay mod
-      static std::string gameplayModsMenuList[6];
+      static std::string gameplayModsMenuList[7];
       gameplayModsMenuList[0] = (game.ShieldFix ? "[ON]  " : "[OFF] ");
       gameplayModsMenuList[0] += "SHIELD FIX";
       gameplayModsMenuList[1] = (game.VisionScroll ? "[ON]  " : "[OFF] ");
@@ -885,10 +1108,12 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
       gameplayModsMenuList[3] += "CREATURES IGNORE OBJS";
       gameplayModsMenuList[4] = (game.CreaturesInstaRegen ? "[ON]  " : "[OFF] ");
       gameplayModsMenuList[4] += "CREATURES INSTA-REGEN";
-      gameplayModsMenuList[5] = "BACK";
+      gameplayModsMenuList[5] = (game.RandomMaze ? "[ON]  " : "[OFF] ");
+      gameplayModsMenuList[5] += "RANDOM MAZES";
+      gameplayModsMenuList[6] = "BACK";
 
       int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                             gameplayModsMenuList, 6);
+                             gameplayModsMenuList, 7);
       if (result == -2) return false; // Pending - submenu started
       switch (result) {
       case 0: // Shield Fix
@@ -906,11 +1131,31 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
       case 4: // Creatures Insta-Regen
         game.CreaturesInstaRegen = !game.CreaturesInstaRegen;
         break;
-      case 5: // Back
+      case 5: // Random Mazes
+        game.RandomMaze = !game.RandomMaze;
+        break;
+      case 6: // Back
         return false;
       default:
         return false;
       }
+    }
+      return false;
+
+    case FILE_MENU_GAME_TIMING: {
+      // Static to survive function return for non-blocking menu
+      static std::string gameTimingMenuList[5];
+      gameTimingMenuList[0] = "CREATURE SPEED";
+      gameTimingMenuList[1] = "TURN DELAY";
+      gameTimingMenuList[2] = "MOVE DELAY";
+      gameTimingMenuList[3] = "CREATURE REGEN";
+      gameTimingMenuList[4] = "BACK";
+
+      int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
+                             gameTimingMenuList, 5);
+      if (result == -2) return false; // Pending - submenu started
+      // Results 0-3 are handled in dodgame.cpp to open scrollbars
+      // Result 4 (BACK) or -1 (ESC) returns to main menu
     }
       return false;
 

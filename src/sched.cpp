@@ -829,6 +829,9 @@ void Scheduler::SAVE() {
   fout << outstr << endl;
 
   fout.close();
+
+  // Sync saved games to persistent storage (IndexedDB in Emscripten)
+  oslink.syncSavedGames();
 }
 
 void Scheduler::LOAD() {

@@ -2,7 +2,7 @@ OBJECTS = creature.o dod.o dodgame.o dungeon.o enhanced.o object.o oslink.o pars
 
 # Single-threaded WASM build - no ASYNCIFY or pthreads
 # Timing is handled via delta-time compensation in the scheduler
-EMFLAGS = -s INITIAL_MEMORY=16777216 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s WASM=1 -s EXIT_RUNTIME=0
+EMFLAGS = -s INITIAL_MEMORY=16777216 -s FULL_ES2=1 -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=1 -s ASSERTIONS=0 -s WASM=1 -s EXIT_RUNTIME=0 -s FORCE_FILESYSTEM=1 -lidbfs.js
 
 BUILD_VERSION := $(shell git describe --always --dirty 2>/dev/null)
 ifeq ($(strip $(BUILD_VERSION)),)
