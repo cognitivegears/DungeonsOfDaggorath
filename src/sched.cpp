@@ -203,8 +203,9 @@ bool Scheduler::SCHED() {
   lastFrameTime = now;
 
   // Clamp dt to avoid spiral of death on lag spikes
-  if (dt > 100) {
-    dt = 100;
+  // 200ms allows more tolerance for mobile frame drops
+  if (dt > 200) {
+    dt = 200;
   }
 
   // Accumulate time
@@ -345,8 +346,8 @@ void Scheduler::CLOCK() {
           }
           if (!player.turning) {
             // Draw to show heart animation (< > or { }) during faint too
-            --viewer.UPDATE;
-            viewer.draw_game();
+            // Use lightweight status-line-only redraw to avoid expensive 3D re-render
+            viewer.draw_status_line();
           }
         }
       }

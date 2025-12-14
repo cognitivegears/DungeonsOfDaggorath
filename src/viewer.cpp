@@ -40,7 +40,7 @@ extern dodGame game;
 Viewer::Viewer()
     : VCNTRX(128), VCNTRY(76), fadChannel(3), buzzStep(300), midPause(2500),
       prepPause(2500), currentFadeMode(0), fadeInterrupted(false),
-      fadeStartTime(0), fadeNextFrameTime(0) {
+      fadeStartTime(0), fadeNextFrameTime(0), batchingLines(false) {
   Utils::LoadFromDecDigit(A_VLA, "411212717516167572757582823535424");
   Utils::LoadFromDecDigit(B_VLA,
                           "6112128182151522224545525275758285262645455656757");
@@ -457,6 +457,18 @@ void Viewer::draw_game() {
     SDL_GL_SwapWindow(oslink.sdlWindow);
   }
   UPDATE = 0;
+}
+
+// Redraw for heartbeat animation
+// Note: With double-buffering, we must redraw the full scene because the back
+// buffer doesn't retain the previous frame's content. A partial scissored draw
+// would leave the text area blank after swap.
+// Future optimization: cache 3D scene to FBO/texture to avoid VIEWER() recomputation.
+void Viewer::draw_status_line() {
+  if (UPDATE == 0) {
+    UPDATE = 1;
+  }
+  draw_game();
 }
 
 // Non-blocking fade initialization
@@ -1968,40 +1980,44 @@ void Viewer::drawVectorList(int VLA[]) {
     return;
   }
 
+  // Use batched line drawing when in vector mode for better performance
+  bool useVectorMode = (g_options & OPT_VECTOR) != 0;
+  if (useVectorMode) {
+    beginLineBatch();
+  }
+
   while (curList < numLists) {
     numVertices = VLA[ctr];
     ++ctr;
     curVertex = 0;
     while (curVertex < (numVertices - 1)) {
-      if (g_options & (OPT_VECTOR | OPT_HIRES)) {
-        float x0, y0, x1, y1;
-        x0 = ScaleXf((float)VLA[ctr]) + (float)VCNTRX;
-        y0 = ScaleYf((float)VLA[ctr + 1]) + (float)VCNTRY;
-        x1 = ScaleXf((float)VLA[ctr + 2]) + (float)VCNTRX;
-        y1 = ScaleYf((float)VLA[ctr + 3]) + (float)VCNTRY;
+      float x0, y0, x1, y1;
+      x0 = ScaleXf((float)VLA[ctr]) + (float)VCNTRX;
+      y0 = ScaleYf((float)VLA[ctr + 1]) + (float)VCNTRY;
+      x1 = ScaleXf((float)VLA[ctr + 2]) + (float)VCNTRX;
+      y1 = ScaleYf((float)VLA[ctr + 3]) + (float)VCNTRY;
+
+      if (useVectorMode) {
+        // Batched drawing - accumulates lines for single draw call
+        addBatchedLine(x0, y0, x1, y1);
+      } else if (g_options & OPT_HIRES) {
+        // HIRES mode still uses immediate drawing
         drawVector(x0, y0, x1, y1);
       } else {
-        float x0, y0, x1, y1;
-        x0 = ScaleXf((float)VLA[ctr]) + (float)VCNTRX;
-        y0 = ScaleYf((float)VLA[ctr + 1]) + (float)VCNTRY;
-        x1 = ScaleXf((float)VLA[ctr + 2]) + (float)VCNTRX;
-        y1 = ScaleYf((float)VLA[ctr + 3]) + (float)VCNTRY;
+        // Standard mode - truncate to integer coordinates
         drawVector((float)(int)x0, (float)(int)y0, (float)(int)x1,
                    (float)(int)y1);
-        //				dodSHORT x0, y0, x1, y1;
-        //				x0 = ScaleX(VLA[ctr]) + VCNTRX;
-        //				y0 = ScaleY(VLA[ctr+1]) + VCNTRY;
-        //				x1 = ScaleX(VLA[ctr+2]) + VCNTRX;
-        //				y1 = ScaleY(VLA[ctr+3]) + VCNTRY;
-        //				drawVector(x0, y0, x1, y1);
       }
       ctr += 2;
       ++curVertex;
-      // Need to yield?
     }
     ++curList;
     ctr += 2;
-    // Need to yield?
+  }
+
+  // Flush batched lines at end
+  if (useVectorMode) {
+    endLineBatch();
   }
 }
 
@@ -2206,6 +2222,67 @@ void Viewer::drawVector(float X0, float Y0, float X1, float Y1) {
       --L;
       // Need to yield?
     } while (L > 0);
+  }
+}
+
+// Begin batching line draws - accumulates lines until endLineBatch()
+void Viewer::beginLineBatch() {
+  lineBatch.clear();
+  batchingLines = true;
+}
+
+// End batching and draw all accumulated lines at once
+void Viewer::endLineBatch() {
+  if (!batchingLines || lineBatch.empty()) {
+    batchingLines = false;
+    return;
+  }
+
+  // Draw all accumulated lines in a single glBegin/glEnd block
+  glBegin(GL_LINES);
+  for (const auto& line : lineBatch) {
+    glColor3fv(line.color);
+    glVertex2f(line.x0, line.y0);
+    glVertex2f(line.x1, line.y1);
+  }
+  glColor3fv(fgColor);  // Restore foreground color
+  glEnd();
+
+  lineBatch.clear();
+  batchingLines = false;
+}
+
+// Add a line to the batch (when batching) or draw immediately
+void Viewer::addBatchedLine(float X0, float Y0, float X1, float Y1) {
+  if (VCTFAD == 0xff)
+    return;  // Do not draw lines with VCTFAD=255
+
+  // Calculate line color from VCTFAD
+  float flBrightness = 1.0f / (VCTFAD / 2.0f + 1.0f);
+  GLfloat clrLine[3];
+  clrLine[0] = fgColor[0] * flBrightness + bgColor[0] * (1.0f - flBrightness);
+  clrLine[1] = fgColor[1] * flBrightness + bgColor[1] * (1.0f - flBrightness);
+  clrLine[2] = fgColor[2] * flBrightness + bgColor[2] * (1.0f - flBrightness);
+
+  if (batchingLines) {
+    // Accumulate for batched drawing
+    BatchedLine bl;
+    bl.x0 = crd.newX(X0);
+    bl.y0 = crd.newY(Y0);
+    bl.x1 = crd.newX(X1);
+    bl.y1 = crd.newY(Y1);
+    bl.color[0] = clrLine[0];
+    bl.color[1] = clrLine[1];
+    bl.color[2] = clrLine[2];
+    lineBatch.push_back(bl);
+  } else {
+    // Draw immediately (fallback)
+    glBegin(GL_LINES);
+    glColor3fv(clrLine);
+    glVertex2f(crd.newX(X0), crd.newY(Y0));
+    glVertex2f(crd.newX(X1), crd.newY(Y1));
+    glColor3fv(fgColor);
+    glEnd();
   }
 }
 

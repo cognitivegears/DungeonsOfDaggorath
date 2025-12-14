@@ -24,6 +24,7 @@ is held by Douglas J. Morgan.
 
 #include "dod.h"
 #include "dodgame.h"
+#include <vector>
 
 extern dodGame	game;
 
@@ -36,6 +37,7 @@ public:
 	// Public Interface
 	void		setup_opengl();
 	void		draw_game();
+	void		draw_status_line();  // Lightweight redraw for heartbeat animation
 	bool		draw_fade();
 	void		enough_fade();
 	void		death_fade(int WIZ[]);
@@ -77,6 +79,11 @@ public:
 	void		setVidInv(bool inv);
 	void		drawVectorList(int VLA[]);
 	void		drawVector(float X0, float Y0, float X1, float Y1);
+
+	// Batched line drawing for performance
+	void		beginLineBatch();
+	void		endLineBatch();
+	void		addBatchedLine(float X0, float Y0, float X1, float Y1);
 	void		Reset();
 	bool		ShowFade(int fadeMode, bool inMainLoop = true);
 
@@ -187,6 +194,14 @@ private:
 	void drawString_internal(int x, int y, dodBYTE * str, int len);
 	void plotPoint(double X, double Y);
 	char dod_to_ascii(dodBYTE c);
+
+	// Batched line drawing - reduces glBegin/glEnd overhead
+	struct BatchedLine {
+		GLfloat x0, y0, x1, y1;
+		GLfloat color[3];
+	};
+	std::vector<BatchedLine> lineBatch;
+	bool batchingLines;
 
 	// Data Fields
 	dodSHORT	VCNTRX;

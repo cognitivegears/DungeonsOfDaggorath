@@ -749,6 +749,15 @@ void OS_Link::handle_key_down(SDL_Keysym *keysym) {
     case SDLK_ESCAPE:
       game.requestMenu();
       break;
+    case SDLK_BACKQUOTE:
+    case SDLK_SLASH:
+      // Toggle map off with backtick or slash when Modern Controls enabled
+      if (game.ModernControls) {
+        viewer.display_mode = Viewer::MODE_3D;
+        --viewer.UPDATE;
+        return;
+      }
+      // Fall through to default if Modern Controls disabled
     default:
       viewer.display_mode = Viewer::MODE_3D;
       --viewer.UPDATE;
@@ -779,6 +788,12 @@ void OS_Link::handle_key_down(SDL_Keysym *keysym) {
           sendCommand("EX");  // Examine backpack
         }
         game.ModernControlsExamineMode = !game.ModernControlsExamineMode;
+        return;
+      case SDLK_BACKQUOTE:
+      case SDLK_SLASH:
+        // Toggle map on with backtick or slash
+        viewer.display_mode = Viewer::MODE_MAP;
+        viewer.PUPDAT();
         return;
       default:
         break; // Fall through to normal key handling
