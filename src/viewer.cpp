@@ -474,6 +474,26 @@ void Viewer::draw_game() {
   UPDATE = 0;
 }
 
+// Helper function to begin a frame with optional artifact color FBO setup
+// Call this before any rendering that will end with endFrame()
+void Viewer::beginFrame() {
+  bool useArtifact = (g_options & OPT_ARTIFACT) && shaderMgr.isInitialized();
+  if (useArtifact) {
+    shaderMgr.beginRenderToTexture();
+  }
+}
+
+// Helper function to end a frame, applying artifact effect if enabled and swapping buffers
+// Call this instead of SDL_GL_SwapWindow for consistent artifact color support
+void Viewer::endFrame() {
+  bool useArtifact = (g_options & OPT_ARTIFACT) && shaderMgr.isInitialized();
+  if (useArtifact) {
+    shaderMgr.endRenderToTexture();
+    shaderMgr.applyArtifactEffect((g_options & OPT_ARTIFACT_FLIP) != 0);
+  }
+  SDL_GL_SwapWindow(oslink.sdlWindow);
+}
+
 // Redraw for heartbeat animation
 // Note: With double-buffering, we must redraw the full scene because the back
 // buffer doesn't retain the previous frame's content. A partial scissored draw
@@ -569,6 +589,7 @@ bool Viewer::updateFade() {
                      ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
       // Draw frame
+      beginFrame();
       glClear(GL_COLOR_BUFFER_BIT);
       glMatrixMode(GL_MODELVIEW);
       glLoadIdentity();
@@ -577,7 +598,7 @@ bool Viewer::updateFade() {
       glLoadIdentity();
       drawVectorList(wiz);
       drawArea(&TXTPRI);
-      SDL_GL_SwapWindow(oslink.sdlWindow);
+      endFrame();
 
       // Advance fade (faster than original for snappier response)
       VCTFAD -= 4;
@@ -594,6 +615,7 @@ bool Viewer::updateFade() {
     }
   } else {
     // After fade in - just draw final frame
+    beginFrame();
     glClear(GL_COLOR_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -602,7 +624,7 @@ bool Viewer::updateFade() {
     glLoadIdentity();
     drawVectorList(wiz);
     drawArea(&TXTPRI);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
 
     // Check if crash sound is done
     if (Mix_Playing(fadChannel) == 0) {
@@ -703,6 +725,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
                    ((32 - VCTFAD) / 2) *
                    ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
+    beginFrame();
     glClear(GL_COLOR_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -710,7 +733,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
     glColor3fv(fgColor);
     glLoadIdentity();
     drawVectorList(wiz);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
     ticks1 = SDL_GetTicks();
     do {
       ticks2 = SDL_GetTicks();
@@ -749,6 +772,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
 
   //    std::cout << "after while in docrash" << std::endl;
   // show message
+  beginFrame();
   glClear(GL_COLOR_BUFFER_BIT);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
@@ -757,7 +781,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
   glLoadIdentity();
   drawVectorList(wiz);
   drawArea(&TXTPRI);
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  endFrame();
 
   //    std::cout << "after swapwindow" << std::endl;
   if (fadeMode < 3) {
@@ -766,6 +790,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
     do {
       ticks2 = SDL_GetTicks();
 
+      beginFrame();
       glClear(GL_COLOR_BUFFER_BIT);
       glMatrixMode(GL_MODELVIEW);
       glLoadIdentity();
@@ -774,7 +799,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
       glLoadIdentity();
       drawVectorList(wiz);
       drawArea(&TXTPRI);
-      SDL_GL_SwapWindow(oslink.sdlWindow);
+      endFrame();
 
       if (fadeMode != 2 && scheduler.keyCheck()) {
         clearArea(&TXTPRI);
@@ -786,6 +811,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
     } while (ticks2 < ticks1 + midPause);
 
     // erase message
+    beginFrame();
     glClear(GL_COLOR_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -793,7 +819,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
     glColor3fv(fgColor);
     glLoadIdentity();
     drawVectorList(wiz);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
 
     // do crash
     Mix_PlayChannel(fadChannel, creature.kaboom, 0);
@@ -821,6 +847,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
                      ((32 - VCTFAD) / 2) *
                      ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
+      beginFrame();
       glClear(GL_COLOR_BUFFER_BIT);
       glMatrixMode(GL_MODELVIEW);
       glLoadIdentity();
@@ -828,7 +855,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
       glColor3fv(fgColor);
       glLoadIdentity();
       drawVectorList(wiz);
-      SDL_GL_SwapWindow(oslink.sdlWindow);
+      endFrame();
 
       ticks1 = SDL_GetTicks();
       do {
@@ -856,6 +883,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
   } else {
     while (!scheduler.keyCheck()) // Wait for a key
     {
+      beginFrame();
       glClear(GL_COLOR_BUFFER_BIT);
       glMatrixMode(GL_MODELVIEW);
       glLoadIdentity();
@@ -864,7 +892,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
       glLoadIdentity();
       drawVectorList(wiz);
       drawArea(&TXTPRI);
-      SDL_GL_SwapWindow(oslink.sdlWindow);
+      endFrame();
       DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     }
     clearArea(&TXTPRI);
@@ -884,25 +912,22 @@ bool Viewer::draw_fade() {
   delay1 = delay2 = SDL_GetTicks();
 
   if ((!done && delay1 > delay + buzzStep) && fadeVal != 0) {
-    glClear(GL_COLOR_BUFFER_BIT);
-  }
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-
-  drawArea(&TXTSTS);
-
-  glColor3fv(fgColor);
-
-  if ((!done && delay1 > delay + buzzStep) && fadeVal != 0) {
     // Set volume of buzz
     Mix_Volume(fadChannel,
                static_cast<int>(
                    ((32 - VCTFAD) / 2) *
                    ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
+    beginFrame();
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    drawArea(&TXTSTS);
+    glColor3fv(fgColor);
     glLoadIdentity();
     drawVectorList(W1_VLA);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
+
     VCTFAD += fadeVal;
     if ((VCTFAD & 0x80) != 0) {
       // do sound crash
@@ -924,10 +949,16 @@ bool Viewer::draw_fade() {
   }
 
   if (VCTFAD == 0 && fadeVal == 0) {
+    beginFrame();
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    drawArea(&TXTSTS);
+    glColor3fv(fgColor);
     glLoadIdentity();
     drawVectorList(W1_VLA);
     drawArea(&TXTPRI);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
+
     delay2 = SDL_GetTicks();
     if (delay2 > delay + midPause) {
       // do sound crash
@@ -952,30 +983,34 @@ void Viewer::enough_fade() {
   delay1 = delay2 = SDL_GetTicks();
 
   if ((!done && delay1 > delay + buzzStep) && fadeVal != 0) {
-    glClear(GL_COLOR_BUFFER_BIT);
-  }
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-
-  drawArea(&TXTSTS);
-
-  glColor3fv(fgColor);
-
-  if ((!done && delay1 > delay + buzzStep) && fadeVal != 0) {
     // Set volume of buzz
     Mix_Volume(fadChannel,
                static_cast<int>(
                    ((32 - VCTFAD) / 2) *
                    ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
+    beginFrame();
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    drawArea(&TXTSTS);
+    glColor3fv(fgColor);
     glLoadIdentity();
     drawVectorList(W1_VLA);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
+
     VCTFAD += fadeVal;
     if ((VCTFAD & 0x80) != 0) {
       displayEnough();
+      beginFrame();
+      glMatrixMode(GL_MODELVIEW);
+      glLoadIdentity();
+      drawArea(&TXTSTS);
+      glColor3fv(fgColor);
+      glLoadIdentity();
+      drawVectorList(W1_VLA);
       drawArea(&TXTPRI);
-      SDL_GL_SwapWindow(oslink.sdlWindow);
+      endFrame();
 
       // do sound crash
       Mix_HaltChannel(fadChannel);
@@ -996,11 +1031,17 @@ void Viewer::enough_fade() {
   }
 
   if (VCTFAD == 0 && fadeVal == 0) {
+    beginFrame();
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    drawArea(&TXTSTS);
+    glColor3fv(fgColor);
     glLoadIdentity();
     drawVectorList(W1_VLA);
     VCTFAD += fadeVal;
     drawArea(&TXTPRI);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
+
     delay2 = SDL_GetTicks();
     if (delay2 > delay + midPause) {
       // do sound crash
@@ -1030,6 +1071,7 @@ void Viewer::death_fade(int WIZ[]) {
                    ((32 - VCTFAD) / 2) *
                    ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
 
+    beginFrame();
     glClear(GL_COLOR_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -1037,16 +1079,25 @@ void Viewer::death_fade(int WIZ[]) {
     glColor3fv(fgColor);
     glLoadIdentity();
     drawVectorList(WIZ);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
+
     VCTFAD += fadeVal;
     if ((VCTFAD & 0x80) != 0) {
       // do sound crash
       Mix_HaltChannel(fadChannel);
       Mix_Volume(fadChannel,
                  static_cast<int>((oslink.volumeLevel * MIX_MAX_VOLUME) / 128));
+
+      beginFrame();
+      glMatrixMode(GL_MODELVIEW);
       glLoadIdentity();
+      drawArea(&TXTSTS);
+      glColor3fv(fgColor);
+      glLoadIdentity();
+      drawVectorList(WIZ);
       drawArea(&TXTPRI);
-      SDL_GL_SwapWindow(oslink.sdlWindow);
+      endFrame();
+
       Mix_PlayChannel(fadChannel, creature.kaboom, 0);
       scheduler.WaitForChannel(fadChannel);
 
@@ -1058,10 +1109,15 @@ void Viewer::death_fade(int WIZ[]) {
   }
 
   if (fadeVal == 0) {
+    beginFrame();
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    drawArea(&TXTSTS);
+    glColor3fv(fgColor);
     glLoadIdentity();
     drawVectorList(WIZ);
     drawArea(&TXTPRI);
-    SDL_GL_SwapWindow(oslink.sdlWindow);
+    endFrame();
   }
 }
 
@@ -2331,6 +2387,7 @@ void Viewer::plotPoint(double X, double Y) {
 void Viewer::drawMenu(menu mainMenu, int menu_id, int highlight) {
   int x, y, length;
 
+  beginFrame();
   // Clear screen
   glColor3fv(bgColor);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2392,7 +2449,7 @@ void Viewer::drawMenu(menu mainMenu, int menu_id, int highlight) {
   }
 
   // Update the screen
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  endFrame();
 }
 
 /****************************************************************
@@ -2411,6 +2468,7 @@ void Viewer::drawMenuList(int x, int y, std::string title, std::string list[],
                           int listSize, int highlight) {
   int length;
 
+  beginFrame();
   // Clear screen
   glColor3fv(bgColor);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2440,7 +2498,7 @@ void Viewer::drawMenuList(int x, int y, std::string title, std::string list[],
   }
 
   // Update the screen
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  endFrame();
 }
 
 /****************************************************************
@@ -2454,6 +2512,7 @@ void Viewer::drawMenuList(int x, int y, std::string title, std::string list[],
 void Viewer::drawMenuScrollbar(std::string title, int current) {
   int x;
 
+  beginFrame();
   // Clear screen
   glColor4fv(bgColor);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2477,7 +2536,7 @@ void Viewer::drawMenuScrollbar(std::string title, int current) {
   }
 
   // Update the screen
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  endFrame();
 }
 
 /****************************************************************
@@ -2488,6 +2547,7 @@ void Viewer::drawMenuScrollbar(std::string title, int current) {
   Function: Draws a menu string box
 ****************************************************************/
 void Viewer::drawMenuStringTitle(std::string title) {
+  beginFrame();
   // Clear screen
   glColor4fv(bgColor);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2496,7 +2556,7 @@ void Viewer::drawMenuStringTitle(std::string title) {
   drawString(0, 0, title);
 
   // Update the screen
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  endFrame();
 }
 
 /****************************************************************
@@ -2507,11 +2567,17 @@ void Viewer::drawMenuStringTitle(std::string title) {
   Function: Draws a menu string box
 ****************************************************************/
 void Viewer::drawMenuString(std::string currentString) {
+  beginFrame();
+  // Redraw title area background and text
+  glColor4fv(bgColor);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glColor4fv(fgColor);
+
   drawString(0, 2, currentString);
   drawString(currentString.length(), 2, "_");
 
   // Update the screen
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  endFrame();
 }
 
 /****************************************************************
@@ -2520,6 +2586,7 @@ void Viewer::drawMenuString(std::string currentString) {
   Function: Draws the "About" Box
 ****************************************************************/
 void Viewer::aboutBox(void) {
+  beginFrame();
   // Clear screen
   glColor4fv(bgColor);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2543,5 +2610,5 @@ void Viewer::aboutBox(void) {
   drawString(1, 18, "MANY OTHERS NOT MENTIONED HERE!");
 
   // Update the screen
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  endFrame();
 }

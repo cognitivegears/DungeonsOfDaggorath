@@ -1748,8 +1748,8 @@ void OS_Link::loadDefaults(void) {
   creatureRegen = 5;
   scheduler.updateCreatureRegen(creatureRegen);
 
-  g_options &= ~(OPT_VECTOR | OPT_HIRES);
-  g_options |= OPT_STEREO;
+  g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT_FLIP);
+  g_options |= OPT_STEREO | OPT_ARTIFACT;
   g_cheats = 0;
 
   // Initialize gameplay mod settings

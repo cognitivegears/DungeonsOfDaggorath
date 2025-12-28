@@ -8,7 +8,7 @@ extern OS_Link	oslink;
 extern dodGame	game;
 
 // these globals hold the options and cheat flag bits
-unsigned int g_options=OPT_STEREO; //OPT_HIRES|OPT_STEREO;
+unsigned int g_options=OPT_STEREO|OPT_ARTIFACT; // Artifact colors ON by default
 unsigned int g_cheats=0;
 
 // translate a DOD string into a standard C string

@@ -1515,6 +1515,7 @@ void Player::ShowTurn(dodBYTE A) {
         }
 
         if (redraw) {
+          viewer.beginFrame();
           glClear(GL_COLOR_BUFFER_BIT);
           glLoadIdentity();
           viewer.drawVectorList(viewer.LINES);
@@ -1522,7 +1523,7 @@ void Player::ShowTurn(dodBYTE A) {
                             (x * inc * dir) + offset, y1);
           viewer.drawArea(&viewer.TXTSTS);
           viewer.drawArea(&viewer.TXTPRI);
-          SDL_GL_SwapWindow(oslink.sdlWindow);
+          viewer.endFrame();
           redraw = false;
         }
         DOD_Delay(4); // Smaller delay for smoother turn animation
