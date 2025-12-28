@@ -2407,12 +2407,16 @@ void Viewer::drawMenu(menu mainMenu, int menu_id, int highlight) {
     switch (i) {
     case FILE_MENU_GRAPHICS:
       displayText += ": ";
-      if (g_options & OPT_VECTOR)
+      if (g_options & OPT_VECTOR) {
         displayText += "VECTOR";
-      else if (g_options & OPT_HIRES)
-        displayText += "HIRES";
-      else
-        displayText += "NORMAL";
+      } else {
+        displayText += (g_options & OPT_HIRES) ? "HIRES  - " : "NORMAL - ";
+        if (g_options & OPT_ARTIFACT) {
+          displayText += (g_options & OPT_ARTIFACT_FLIP) ? "NTSC INV" : "NTSC";
+        } else {
+          displayText += "RGB";
+        }
+      }
       break;
 
     case FILE_MENU_VOLUME:

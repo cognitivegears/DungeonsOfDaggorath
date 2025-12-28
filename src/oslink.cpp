@@ -1064,22 +1064,45 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
 
     case FILE_MENU_GRAPHICS: {
       // Static to survive function return for non-blocking menu
-      static std::string graphicsMenuList[] = {"NORMAL GRAPHICS", "HIRES GRAPHICS",
-                                               "VECTOR GRAPHICS"};
+      static std::string graphicsMenuList[] = {
+        "NORMAL - NTSC",
+        "NORMAL - NTSC INV",
+        "NORMAL - RGB",
+        "HIRES  - NTSC",
+        "HIRES  - NTSC INV",
+        "HIRES  - RGB",
+        "VECTOR"
+      };
 
       int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                             graphicsMenuList, 3);
+                             graphicsMenuList, 7);
       if (result == -2) return false; // Pending - submenu started
       switch (result) {
-      case 0:
-        g_options &= ~(OPT_VECTOR | OPT_HIRES);
+      case 0: // NORMAL (NTSC)
+        g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT_FLIP);
+        g_options |= OPT_ARTIFACT;
         break;
-      case 1:
+      case 1: // NORMAL (INVERTED NTSC)
+        g_options &= ~(OPT_VECTOR | OPT_HIRES);
+        g_options |= (OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+        break;
+      case 2: // NORMAL (RGB)
+        g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+        break;
+      case 3: // HIRES (NTSC)
+        g_options &= ~(OPT_VECTOR | OPT_ARTIFACT_FLIP);
+        g_options |= (OPT_HIRES | OPT_ARTIFACT);
+        break;
+      case 4: // HIRES (INVERTED NTSC)
         g_options &= ~(OPT_VECTOR);
+        g_options |= (OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+        break;
+      case 5: // HIRES (RGB)
+        g_options &= ~(OPT_VECTOR | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
         g_options |= OPT_HIRES;
         break;
-      case 2:
-        g_options &= ~(OPT_HIRES);
+      case 6: // VECTOR
+        g_options &= ~(OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
         g_options |= OPT_VECTOR;
         break;
       default:
@@ -1244,42 +1267,6 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
 
     case FILE_MENU_BUILD_INFO:
       return false;
-
-    case FILE_MENU_ARTIFACT: {
-      std::string menuList[] = {"OFF", "ON"};
-      switch (menu_list(menu_id * 5, item + 2,
-                        Menu.getMenuItem(menu_id, item), menuList, 2)) {
-      case 0:
-        g_options &= ~OPT_ARTIFACT;
-        break;
-      case 1:
-        g_options |= OPT_ARTIFACT;
-        // Artifact colors are mutually exclusive with vector mode
-        if (g_options & OPT_VECTOR) {
-          g_options &= ~OPT_VECTOR;
-        }
-        break;
-      default:
-        return false;
-      }
-      return false;
-    }
-
-    case FILE_MENU_ARTIFACT_PHASE: {
-      std::string menuList[] = {"NORMAL", "FLIPPED"};
-      switch (menu_list(menu_id * 5, item + 2,
-                        Menu.getMenuItem(menu_id, item), menuList, 2)) {
-      case 0:
-        g_options &= ~OPT_ARTIFACT_FLIP;
-        break;
-      case 1:
-        g_options |= OPT_ARTIFACT_FLIP;
-        break;
-      default:
-        return false;
-      }
-      return false;
-    }
 
     default:
       break;
