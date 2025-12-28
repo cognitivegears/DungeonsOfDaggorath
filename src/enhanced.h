@@ -6,6 +6,8 @@ enum {
 	OPT_VECTOR=1,
 	OPT_HIRES=2,
 	OPT_STEREO=4,
+	OPT_ARTIFACT=8,       // NTSC artifact color emulation
+	OPT_ARTIFACT_FLIP=16, // Flip cyan/orange phase
 };
 
 extern unsigned int g_cheats;

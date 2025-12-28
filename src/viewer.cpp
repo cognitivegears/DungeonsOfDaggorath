@@ -24,6 +24,7 @@ is held by Douglas J. Morgan.
 #include "parser.h"
 #include "player.h"
 #include "sched.h"
+#include "shader.h"
 #include <string>
 
 extern Creature creature;
@@ -415,6 +416,15 @@ void Viewer::draw_game() {
   if (UPDATE == 0) {
     return;
   }
+
+  // Check if artifact color mode is enabled and shader is ready
+  bool useArtifact = (g_options & OPT_ARTIFACT) && shaderMgr.isInitialized();
+
+  // Begin rendering to texture if artifact mode is enabled
+  if (useArtifact) {
+    shaderMgr.beginRenderToTexture();
+  }
+
   if (display_mode == MODE_MAP) {
     // Draw Map
     glClearColor(1.0, 1.0, 1.0, 0.0);
@@ -422,7 +432,6 @@ void Viewer::draw_game() {
     glClearColor(bgColor[0], bgColor[1], bgColor[2], 0.0);
     glLoadIdentity();
     MAPPER();
-    SDL_GL_SwapWindow(oslink.sdlWindow);
   } else {
     // Draw View Port (3D or Examine or Prepare!)
     glClear(GL_COLOR_BUFFER_BIT);
@@ -453,9 +462,15 @@ void Viewer::draw_game() {
 
     // Draw Text Area
     drawArea(&TXTPRI);
-
-    SDL_GL_SwapWindow(oslink.sdlWindow);
   }
+
+  // Apply artifact effect if enabled, then swap buffers
+  if (useArtifact) {
+    shaderMgr.endRenderToTexture();
+    shaderMgr.applyArtifactEffect((g_options & OPT_ARTIFACT_FLIP) != 0);
+  }
+
+  SDL_GL_SwapWindow(oslink.sdlWindow);
   UPDATE = 0;
 }
 

@@ -119,6 +119,7 @@ std::string formatTimestampForMenu(const std::string &raw) {
 #include "parser.h"
 #include "player.h"
 #include "sched.h"
+#include "shader.h"
 #include "viewer.h"
 
 extern Creature creature;
@@ -565,6 +566,12 @@ void OS_Link::init() {
   changeVideoRes(width); // All changing video res code was moved here
   SDL_SetWindowTitle(sdlWindow, "Dungeons of Daggorath");
 
+  // Initialize shader manager for NTSC artifact colors
+  if (!shaderMgr.init()) {
+    fprintf(stderr, "Warning: Shader initialization failed, artifact colors disabled\n");
+    g_options &= ~OPT_ARTIFACT;
+  }
+
   //    std::cout << "After video res" << std::endl;
   memset(keys, parser.C_SP, keyLen);
 
@@ -681,6 +688,7 @@ void OS_Link::process_events() {
 
 // Quits application
 void OS_Link::quitSDL(int code) {
+  shaderMgr.shutdown();
   Mix_CloseAudio();
   SDL_Quit();
   exit(code);
@@ -1237,6 +1245,42 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
     case FILE_MENU_BUILD_INFO:
       return false;
 
+    case FILE_MENU_ARTIFACT: {
+      std::string menuList[] = {"OFF", "ON"};
+      switch (menu_list(menu_id * 5, item + 2,
+                        Menu.getMenuItem(menu_id, item), menuList, 2)) {
+      case 0:
+        g_options &= ~OPT_ARTIFACT;
+        break;
+      case 1:
+        g_options |= OPT_ARTIFACT;
+        // Artifact colors are mutually exclusive with vector mode
+        if (g_options & OPT_VECTOR) {
+          g_options &= ~OPT_VECTOR;
+        }
+        break;
+      default:
+        return false;
+      }
+      return false;
+    }
+
+    case FILE_MENU_ARTIFACT_PHASE: {
+      std::string menuList[] = {"NORMAL", "FLIPPED"};
+      switch (menu_list(menu_id * 5, item + 2,
+                        Menu.getMenuItem(menu_id, item), menuList, 2)) {
+      case 0:
+        g_options &= ~OPT_ARTIFACT_FLIP;
+        break;
+      case 1:
+        g_options |= OPT_ARTIFACT_FLIP;
+        break;
+      default:
+        return false;
+      }
+      return false;
+    }
+
     default:
       break;
     }
@@ -1605,6 +1649,16 @@ void OS_Link::loadOptFile(void) {
       } else if (!strcmp(inputString, "Cheats")) {
         if (1 == sscanf(breakPoint, "%d", &in))
           g_cheats = in;
+      } else if (!strcmp(inputString, "artifactColors")) {
+        if (!strcmp(breakPoint, "ON"))
+          g_options |= OPT_ARTIFACT;
+        else
+          g_options &= ~OPT_ARTIFACT;
+      } else if (!strcmp(inputString, "artifactPhase")) {
+        if (!strcmp(breakPoint, "FLIPPED"))
+          g_options |= OPT_ARTIFACT_FLIP;
+        else
+          g_options &= ~OPT_ARTIFACT_FLIP;
       }
     }
 
@@ -1665,6 +1719,11 @@ bool OS_Link::saveOptFile(void) {
   fout << "MarkDoorsOnScrollMaps=" << game.MarkDoorsOnScrollMaps << endl;
   fout << "ModernControls=" << game.ModernControls << endl;
   fout << "Cheats=" << g_cheats << endl;
+
+  fout << "artifactColors=";
+  fout << ((g_options & OPT_ARTIFACT) ? "ON" : "OFF") << endl;
+  fout << "artifactPhase=";
+  fout << ((g_options & OPT_ARTIFACT_FLIP) ? "FLIPPED" : "NORMAL") << endl;
 
   fout.close();
 
