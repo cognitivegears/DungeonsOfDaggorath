@@ -39,7 +39,8 @@ extern dodGame game;
 // Constructor
 Viewer::Viewer()
     : VCNTRX(128), VCNTRY(76), fadChannel(3), buzzStep(300), midPause(2500),
-      prepPause(2500) {
+      prepPause(2500), currentFadeMode(0), fadeInterrupted(false),
+      fadeStartTime(0), fadeNextFrameTime(0), batchingLines(false) {
   Utils::LoadFromDecDigit(A_VLA, "411212717516167572757582823535424");
   Utils::LoadFromDecDigit(B_VLA,
                           "6112128182151522224545525275758285262645455656757");
@@ -364,6 +365,11 @@ void Viewer::Reset() {
   delay = 0;
   done = false;
   fadeVal = -2;
+  // Non-blocking fade state
+  currentFadeMode = 0;
+  fadeInterrupted = false;
+  fadeStartTime = 0;
+  fadeNextFrameTime = 0;
   clearArea(&TXTPRI);
   clearArea(&TXTEXA);
   clearArea(&TXTSTS);
@@ -453,6 +459,146 @@ void Viewer::draw_game() {
   UPDATE = 0;
 }
 
+// Redraw for heartbeat animation
+// Note: With double-buffering, we must redraw the full scene because the back
+// buffer doesn't retain the previous frame's content. A partial scissored draw
+// would leave the text area blank after swap.
+// Future optimization: cache 3D scene to FBO/texture to avoid VIEWER() recomputation.
+void Viewer::draw_status_line() {
+  if (UPDATE == 0) {
+    UPDATE = 1;
+  }
+  draw_game();
+}
+
+// Non-blocking fade initialization
+void Viewer::initFade(int fadeMode) {
+  currentFadeMode = fadeMode;
+  fadeInterrupted = false;
+  fadeStartTime = SDL_GetTicks();
+  fadeNextFrameTime = fadeStartTime;
+
+  VXSCAL = 0x80;
+  VYSCAL = 0x80;
+  VXSCALf = 128.0f;
+  VYSCALf = 128.0f;
+
+  clearArea(&TXTPRI);
+
+  switch (fadeMode) {
+  case FADE_BEGIN:
+    displayCopyright();
+    displayWelcomeMessage();
+    break;
+  case FADE_MIDDLE:
+    clearArea(&TXTSTS);
+    displayEnough();
+    break;
+  case FADE_DEATH:
+    clearArea(&TXTSTS);
+    displayDeath();
+    break;
+  case FADE_VICTORY:
+    clearArea(&TXTSTS);
+    displayWinner();
+    break;
+  }
+
+  RANGE = 1;
+  SETSCL();
+  VCTFAD = 32;
+  fadeVal = -2;
+  done = false;
+
+  // Start buzz sound
+  Mix_Volume(fadChannel, 0);
+  Mix_PlayChannel(fadChannel, creature.buzz, -1);
+
+  // Clear event buffer
+  SDL_Event event;
+  while (SDL_PollEvent(&event))
+    ;
+}
+
+// Non-blocking fade update - call each frame
+// Returns true when fade is complete
+bool Viewer::updateFade() {
+  Uint32 now = SDL_GetTicks();
+  int *wiz = (currentFadeMode == FADE_VICTORY) ? W2_VLA : W1_VLA;
+
+  // Check for key press to skip fade (only for FADE_BEGIN)
+  if (currentFadeMode == FADE_BEGIN && scheduler.keyCheck()) {
+    Mix_HaltChannel(fadChannel);
+    clearArea(&TXTPRI);
+    fadeInterrupted = false; // Key pressed = not demo mode
+    SDL_Event event;
+    while (SDL_PollEvent(&event))
+      ;
+    return true;
+  }
+
+  // Rate limit to ~60fps
+  if (now < fadeNextFrameTime) {
+    return false;
+  }
+  fadeNextFrameTime = now + 16;
+
+  // Update fade animation based on phase
+  if (!done) {
+    // Fade in phase
+    if ((VCTFAD & 128) == 0) {
+      // Set volume of buzz
+      Mix_Volume(fadChannel,
+                 static_cast<int>(
+                     ((32 - VCTFAD) / 2) *
+                     ((oslink.volumeLevel * MIX_MAX_VOLUME) / 128.0 / 16.0)));
+
+      // Draw frame
+      glClear(GL_COLOR_BUFFER_BIT);
+      glMatrixMode(GL_MODELVIEW);
+      glLoadIdentity();
+      drawArea(&TXTSTS);
+      glColor3fv(fgColor);
+      glLoadIdentity();
+      drawVectorList(wiz);
+      drawArea(&TXTPRI);
+      SDL_GL_SwapWindow(oslink.sdlWindow);
+
+      // Advance fade (faster than original for snappier response)
+      VCTFAD -= 4;
+    } else {
+      // Fade complete
+      VCTFAD = 0;
+      done = true;
+      Mix_HaltChannel(fadChannel);
+
+      // Play crash sound (non-blocking)
+      Mix_Volume(fadChannel,
+                 static_cast<int>((oslink.volumeLevel * MIX_MAX_VOLUME) / 128));
+      Mix_PlayChannel(fadChannel, creature.kaboom, 0);
+    }
+  } else {
+    // After fade in - just draw final frame
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    drawArea(&TXTSTS);
+    glColor3fv(fgColor);
+    glLoadIdentity();
+    drawVectorList(wiz);
+    drawArea(&TXTPRI);
+    SDL_GL_SwapWindow(oslink.sdlWindow);
+
+    // Check if crash sound is done
+    if (Mix_Playing(fadChannel) == 0) {
+      fadeInterrupted = true; // No key pressed = demo mode
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // This method renders the wizard fade in/out animations.
 // The parameter fadeMode indicates which of the four fades
 // to do:
@@ -461,6 +607,34 @@ void Viewer::draw_game() {
 //   3 = Death
 //   4 = Victory
 bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Without ASYNCIFY, blocking fades don't work - just display message and return
+  (void)inMainLoop;
+  clearArea(&TXTPRI);
+  switch (fadeMode) {
+  case FADE_BEGIN:
+    displayCopyright();
+    displayWelcomeMessage();
+    break;
+  case FADE_MIDDLE:
+    clearArea(&TXTSTS);
+    displayEnough();
+    break;
+  case FADE_DEATH:
+    clearArea(&TXTSTS);
+    displayDeath();
+    break;
+  case FADE_VICTORY:
+    clearArea(&TXTSTS);
+    displayWinner();
+    break;
+  }
+  // Play sound once (non-blocking)
+  Mix_PlayChannel(fadChannel, creature.kaboom, 0);
+  // For death/victory, we can't wait for key - just return
+  // The game will restart automatically
+  return (fadeMode >= FADE_DEATH) ? false : true;
+#else
   //    std::cout << "in showfade" << std::endl;
   Uint32 ticks1, ticks2;
   SDL_Event event;
@@ -532,7 +706,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
           ; // clear event buffer
         return false;
       }
-      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     } while (ticks2 < ticks1 + buzzStep);
   }
   //    std::cout << "after for" << std::endl;
@@ -593,7 +767,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
           ; // clear event buffer
         return false;
       }
-      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     } while (ticks2 < ticks1 + midPause);
 
     // erase message
@@ -651,7 +825,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
             ; // clear event buffer
           return false;
         }
-        SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+        DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
       } while (ticks2 < ticks1 + buzzStep);
     }
   }
@@ -676,7 +850,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
       drawVectorList(wiz);
       drawArea(&TXTPRI);
       SDL_GL_SwapWindow(oslink.sdlWindow);
-      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
     }
     clearArea(&TXTPRI);
     while (SDL_PollEvent(&event))
@@ -684,6 +858,7 @@ bool Viewer::ShowFade(int fadeMode, bool inMainLoop) {
     return false;
   }
   //    std::cout << "done ShowFade" << std::endl;
+#endif
 }
 
 // This is the renderer method used to do the wizard
@@ -1805,40 +1980,44 @@ void Viewer::drawVectorList(int VLA[]) {
     return;
   }
 
+  // Use batched line drawing when in vector mode for better performance
+  bool useVectorMode = (g_options & OPT_VECTOR) != 0;
+  if (useVectorMode) {
+    beginLineBatch();
+  }
+
   while (curList < numLists) {
     numVertices = VLA[ctr];
     ++ctr;
     curVertex = 0;
     while (curVertex < (numVertices - 1)) {
-      if (g_options & (OPT_VECTOR | OPT_HIRES)) {
-        float x0, y0, x1, y1;
-        x0 = ScaleXf((float)VLA[ctr]) + (float)VCNTRX;
-        y0 = ScaleYf((float)VLA[ctr + 1]) + (float)VCNTRY;
-        x1 = ScaleXf((float)VLA[ctr + 2]) + (float)VCNTRX;
-        y1 = ScaleYf((float)VLA[ctr + 3]) + (float)VCNTRY;
+      float x0, y0, x1, y1;
+      x0 = ScaleXf((float)VLA[ctr]) + (float)VCNTRX;
+      y0 = ScaleYf((float)VLA[ctr + 1]) + (float)VCNTRY;
+      x1 = ScaleXf((float)VLA[ctr + 2]) + (float)VCNTRX;
+      y1 = ScaleYf((float)VLA[ctr + 3]) + (float)VCNTRY;
+
+      if (useVectorMode) {
+        // Batched drawing - accumulates lines for single draw call
+        addBatchedLine(x0, y0, x1, y1);
+      } else if (g_options & OPT_HIRES) {
+        // HIRES mode still uses immediate drawing
         drawVector(x0, y0, x1, y1);
       } else {
-        float x0, y0, x1, y1;
-        x0 = ScaleXf((float)VLA[ctr]) + (float)VCNTRX;
-        y0 = ScaleYf((float)VLA[ctr + 1]) + (float)VCNTRY;
-        x1 = ScaleXf((float)VLA[ctr + 2]) + (float)VCNTRX;
-        y1 = ScaleYf((float)VLA[ctr + 3]) + (float)VCNTRY;
+        // Standard mode - truncate to integer coordinates
         drawVector((float)(int)x0, (float)(int)y0, (float)(int)x1,
                    (float)(int)y1);
-        //				dodSHORT x0, y0, x1, y1;
-        //				x0 = ScaleX(VLA[ctr]) + VCNTRX;
-        //				y0 = ScaleY(VLA[ctr+1]) + VCNTRY;
-        //				x1 = ScaleX(VLA[ctr+2]) + VCNTRX;
-        //				y1 = ScaleY(VLA[ctr+3]) + VCNTRY;
-        //				drawVector(x0, y0, x1, y1);
       }
       ctr += 2;
       ++curVertex;
-      // Need to yield?
     }
     ++curList;
     ctr += 2;
-    // Need to yield?
+  }
+
+  // Flush batched lines at end
+  if (useVectorMode) {
+    endLineBatch();
   }
 }
 
@@ -2046,6 +2225,67 @@ void Viewer::drawVector(float X0, float Y0, float X1, float Y1) {
   }
 }
 
+// Begin batching line draws - accumulates lines until endLineBatch()
+void Viewer::beginLineBatch() {
+  lineBatch.clear();
+  batchingLines = true;
+}
+
+// End batching and draw all accumulated lines at once
+void Viewer::endLineBatch() {
+  if (!batchingLines || lineBatch.empty()) {
+    batchingLines = false;
+    return;
+  }
+
+  // Draw all accumulated lines in a single glBegin/glEnd block
+  glBegin(GL_LINES);
+  for (const auto& line : lineBatch) {
+    glColor3fv(line.color);
+    glVertex2f(line.x0, line.y0);
+    glVertex2f(line.x1, line.y1);
+  }
+  glColor3fv(fgColor);  // Restore foreground color
+  glEnd();
+
+  lineBatch.clear();
+  batchingLines = false;
+}
+
+// Add a line to the batch (when batching) or draw immediately
+void Viewer::addBatchedLine(float X0, float Y0, float X1, float Y1) {
+  if (VCTFAD == 0xff)
+    return;  // Do not draw lines with VCTFAD=255
+
+  // Calculate line color from VCTFAD
+  float flBrightness = 1.0f / (VCTFAD / 2.0f + 1.0f);
+  GLfloat clrLine[3];
+  clrLine[0] = fgColor[0] * flBrightness + bgColor[0] * (1.0f - flBrightness);
+  clrLine[1] = fgColor[1] * flBrightness + bgColor[1] * (1.0f - flBrightness);
+  clrLine[2] = fgColor[2] * flBrightness + bgColor[2] * (1.0f - flBrightness);
+
+  if (batchingLines) {
+    // Accumulate for batched drawing
+    BatchedLine bl;
+    bl.x0 = crd.newX(X0);
+    bl.y0 = crd.newY(Y0);
+    bl.x1 = crd.newX(X1);
+    bl.y1 = crd.newY(Y1);
+    bl.color[0] = clrLine[0];
+    bl.color[1] = clrLine[1];
+    bl.color[2] = clrLine[2];
+    lineBatch.push_back(bl);
+  } else {
+    // Draw immediately (fallback)
+    glBegin(GL_LINES);
+    glColor3fv(clrLine);
+    glVertex2f(crd.newX(X0), crd.newY(Y0));
+    glVertex2f(crd.newX(X1), crd.newY(Y1));
+    glColor3fv(fgColor);
+    glEnd();
+  }
+}
+
 // Draws one pixel
 void Viewer::plotPoint(double X, double Y) {
   if (g_options & OPT_HIRES) { // draw a single pixel
@@ -2103,29 +2343,8 @@ void Viewer::drawMenu(menu mainMenu, int menu_id, int highlight) {
         displayText += "NORMAL";
       break;
 
-    case FILE_MENU_CREATURE_SPEED:
-      displayText += ": " + std::to_string(creature.creSpeedMul) + "%";
-      break;
-
-    case FILE_MENU_TURN_DELAY:
-      displayText += ": " + std::to_string(player.turnDelay) + " MS";
-      break;
-
-    case FILE_MENU_MOVE_DELAY:
-      displayText += ": " + std::to_string(player.moveDelay) + " MS";
-      break;
-
-    case FILE_MENU_CREATURE_REGEN:
-      displayText += ": " + std::to_string(oslink.creatureRegen) + " MIN";
-      break;
-
     case FILE_MENU_VOLUME:
       displayText += ": " + std::to_string(oslink.volumeLevel);
-      break;
-
-    case FILE_MENU_RANDOM_MAZE:
-      displayText += ": ";
-      displayText += game.RandomMaze ? "ON" : "OFF";
       break;
 
     case FILE_MENU_SND_MODE:

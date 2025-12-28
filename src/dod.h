@@ -46,6 +46,19 @@ is held by Douglas J. Morgan.
 //#include <GLES2/gl2ext.h>
 #include <SDL2/SDL_mixer.h>
 
+// Non-blocking delay for Emscripten without ASYNCIFY
+// SDL_Delay would block the browser, so we make it a no-op
+// Game timing is handled by delta-time compensation in the scheduler
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+inline void DOD_Delay(Uint32 ms) {
+  (void)ms; // No-op: cannot block without ASYNCIFY
+}
+#else
+inline void DOD_Delay(Uint32 ms) {
+  SDL_Delay(ms);
+}
+#endif
+
 // Standard headers
 #include <stdio.h>
 #include <stdlib.h>
@@ -513,24 +526,25 @@ namespace Utils{
   Note: implementation of commands is at OS_Link::menu_return
 *******************************************************************/
 #define NUM_MENU   1
-#define NUM_FILE   13
+#define NUM_FILE   14
 #define NUM_LENGTH 35
 
 #define FILE_MENU_SWITCH   0
 
 #define FILE_MENU_NEW            0
 #define FILE_MENU_RETURN         1
-#define FILE_MENU_GRAPHICS       2
-#define FILE_MENU_CREATURE_SPEED 3
-#define FILE_MENU_TURN_DELAY     4
-#define FILE_MENU_MOVE_DELAY     5
-#define FILE_MENU_CREATURE_REGEN 6
-#define FILE_MENU_VOLUME         7
-#define FILE_MENU_RANDOM_MAZE    8
-#define FILE_MENU_SND_MODE       9
-#define FILE_MENU_SAVE_OPT      10
-#define FILE_MENU_DEFAULTS      11
-#define FILE_MENU_BUILD_INFO    12
+#define FILE_MENU_LOAD_GAME      2
+#define FILE_MENU_SAVE_GAME      3
+#define FILE_MENU_DELETE_SAVE    4
+#define FILE_MENU_GRAPHICS       5
+#define FILE_MENU_VOLUME         6
+#define FILE_MENU_SND_MODE       7
+#define FILE_MENU_SAVE_OPT       8
+#define FILE_MENU_DEFAULTS       9
+#define FILE_MENU_CHEATS        10
+#define FILE_MENU_GAMEPLAY_MODS 11
+#define FILE_MENU_GAME_TIMING   12
+#define FILE_MENU_BUILD_INFO    13
 
 class menu
 {
@@ -550,17 +564,18 @@ public:
 
 	 strncpy(&FILE_MENU[FILE_MENU_NEW][0], "START NEW GAME", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_RETURN][0], "RETURN TO GAME", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_LOAD_GAME][0], "LOAD SAVED GAME", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_SAVE_GAME][0], "SAVE GAME", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_DELETE_SAVE][0], "DELETE SAVED GAME", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_GRAPHICS][0], "GRAPHICS MODE", NUM_LENGTH);
-	 strncpy(&FILE_MENU[FILE_MENU_CREATURE_SPEED][0], "CREATURE SPEED", NUM_LENGTH);
-	 strncpy(&FILE_MENU[FILE_MENU_TURN_DELAY][0], "TURN DELAY", NUM_LENGTH);
-	 strncpy(&FILE_MENU[FILE_MENU_MOVE_DELAY][0], "MOVE DELAY", NUM_LENGTH);
-	 strncpy(&FILE_MENU[FILE_MENU_CREATURE_REGEN][0], "CREATURE REGEN", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_VOLUME][0], "SOUND VOLUME", NUM_LENGTH);
-	 strncpy(&FILE_MENU[FILE_MENU_RANDOM_MAZE][0], "RANDOM MAZES", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_SND_MODE][0], "SOUND MODES", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_SAVE_OPT][0], "SAVE CURRENT OPTIONS", NUM_LENGTH);
 	 strncpy(&FILE_MENU[FILE_MENU_DEFAULTS][0], "RESTORE DEFAULTS", NUM_LENGTH);
-	strncpy(&FILE_MENU[FILE_MENU_BUILD_INFO][0], "BUILD", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_CHEATS][0], "CHEATS", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_GAMEPLAY_MODS][0], "GAMEPLAY MODS", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_GAME_TIMING][0], "GAME TIMING", NUM_LENGTH);
+	 strncpy(&FILE_MENU[FILE_MENU_BUILD_INFO][0], "BUILD", NUM_LENGTH);
 	 }
 
 	char *getMenuName(int menu_id)

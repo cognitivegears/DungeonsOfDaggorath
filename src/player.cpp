@@ -292,6 +292,8 @@ int Player::HSLOW() {
 void Player::HUPDAT() {
   Uint32 ticks1;
   SDL_Event event;
+  (void)ticks1;  // May be unused in non-ASYNCIFY builds
+  (void)event;   // May be unused in non-ASYNCIFY builds
 
   // Heartrate in source:
   //
@@ -314,6 +316,20 @@ void Player::HUPDAT() {
       FAINT = -1;
       viewer.clearArea(&viewer.TXTPRI);
       viewer.OLIGHT = viewer.RLIGHT;
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+      // Non-blocking: request faint animation via state machine
+      // This shows the heartbeat racing while screen dims
+      // Only start if not already in a faint/recover animation
+      // Note: faint can be triggered during move/turn animations (running causes fatigue)
+      {
+        dodGame::GameState currentState = game.getState();
+        if (currentState != dodGame::STATE_FAINT_ANIMATION &&
+            currentState != dodGame::STATE_RECOVER_ANIMATION) {
+          game.requestFaintAnimation();
+        }
+      }
+      return; // Animation will handle death check when complete
+#else
       do {
         --viewer.MLIGHT;
         --viewer.UPDATE;
@@ -326,18 +342,33 @@ void Player::HUPDAT() {
             scheduler.CLOCK();
             scheduler.EscCheck();
           }
-          SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+          DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
           scheduler.curTime = SDL_GetTicks();
         } while (scheduler.curTime < ticks1 + 750);
       } while (viewer.RLIGHT != 248); // not equal to -8
       --viewer.UPDATE;
       parser.KBDHDR = 0;
       parser.KBDTAL = 0;
+#endif
     }
   } else {
     // in a faint
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // During non-blocking faint/recover animation, just update HEARTR (already done above)
+    // Don't trigger recovery here - let the animation complete first
+    dodGame::GameState state = game.getState();
+    if (state == dodGame::STATE_FAINT_ANIMATION ||
+        state == dodGame::STATE_RECOVER_ANIMATION) {
+      return; // Let animation complete
+    }
+#endif
     if (HEARTR >= 4 && (HEARTR & 128) == 0) {
       // do recover from faint
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+      // Non-blocking: request recover animation via state machine
+      game.requestRecoverAnimation();
+      return; // Animation will clear FAINT when complete
+#else
       do {
         --viewer.UPDATE;
         viewer.draw_game();
@@ -350,24 +381,29 @@ void Player::HUPDAT() {
             scheduler.CLOCK();
             scheduler.EscCheck();
           }
-          SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+          DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
           scheduler.curTime = SDL_GetTicks();
         } while (scheduler.curTime < ticks1 + 750);
       } while (viewer.RLIGHT != viewer.OLIGHT);
       FAINT = 0;
       viewer.PROMPT();
       --viewer.UPDATE;
+#endif
     }
   }
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_ASYNCIFY__)
+  // For non-ASYNCIFY Emscripten, death is handled by updateFaintAnimation
   if (PLRBLK.P_ATPOW < PLRBLK.P_ATDAM) {
     // Do death
-    while (SDL_PollEvent(&event))
+    SDL_Event evt;
+    while (SDL_PollEvent(&evt))
       ; // clear event buffer
     viewer.clearArea(&viewer.TXTSTS);
     viewer.clearArea(&viewer.TXTPRI);
     viewer.ShowFade(Viewer::FADE_DEATH);
     // scheduler.deathFadeLoop();
   }
+#endif
 }
 
 // This method is called every five seconds.  It will
@@ -646,12 +682,14 @@ void Player::PATTK() {
 
     // do fade in with message
 
-    // Pause so player can see scroll
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Pause so player can see scroll (blocking - skip for non-ASYNCIFY)
     ticks1 = SDL_GetTicks();
     do {
-      SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
       ticks2 = SDL_GetTicks();
     } while (ticks2 < ticks1 + wizDelay);
+#endif
 
     while (SDL_PollEvent(&event))
       ; // clear event buffer
@@ -678,6 +716,11 @@ void Player::PATTK() {
                     // Stop buzz
                     Mix_HaltChannel(viewer.fadChannel);
     */
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Non-blocking: request intermission fade, level setup will happen after
+    game.requestIntermissionFade(dodGame::POST_FADE_LEVEL3_SETUP);
+    return; // Return immediately, rest will happen after fade
+#else
     viewer.ShowFade(Viewer::FADE_MIDDLE);
 
     BAGPTR = PTORCH;
@@ -699,6 +742,7 @@ void Player::PATTK() {
     PCOL = c;
 
     game.INIVU();
+#endif
   }
 
   if (creature.CCBLND[cidx].creature_id != Creature::CRT_WIZARD) {
@@ -804,15 +848,18 @@ void Player::PCLIMB() {
         temp = viewer.display_mode;
         viewer.display_mode = Viewer::MODE_TITLE;
         viewer.draw_game();
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_ASYNCIFY__)
+        // Blocking pause - skip for non-ASYNCIFY
         ticks1 = SDL_GetTicks();
         scheduler.curTime = ticks1;
         do {
           if (scheduler.curTime >= scheduler.TCBLND[0].next_time) {
             scheduler.CLOCK();
           }
-          SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+          DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
           scheduler.curTime = SDL_GetTicks();
         } while (scheduler.curTime < ticks1 + viewer.prepPause);
+#endif
         viewer.display_mode = temp;
         --game.LEVEL;
         creature.NEWLVL();
@@ -828,15 +875,18 @@ void Player::PCLIMB() {
         temp = viewer.display_mode;
         viewer.display_mode = Viewer::MODE_TITLE;
         viewer.draw_game();
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_ASYNCIFY__)
+        // Blocking pause - skip for non-ASYNCIFY
         ticks1 = SDL_GetTicks();
         scheduler.curTime = ticks1;
         do {
           if (scheduler.curTime >= scheduler.TCBLND[0].next_time) {
             scheduler.CLOCK();
           }
-          SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+          DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
           scheduler.curTime = SDL_GetTicks();
         } while (scheduler.curTime < ticks1 + viewer.prepPause);
+#endif
         viewer.display_mode = temp;
         ++game.LEVEL;
         creature.NEWLVL();
@@ -992,17 +1042,24 @@ void Player::PINCAN() {
           while (SDL_PollEvent(&event))
             ; // clear event buffer
 
-          // Pause so player can see status line
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_ASYNCIFY__)
+          // Pause so player can see status line (blocking - skip for non-ASYNCIFY)
           ticks1 = SDL_GetTicks();
           do {
-            SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+            DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
             ticks2 = SDL_GetTicks();
           } while (ticks2 < ticks1 + wizDelay);
+#endif
 
           viewer.clearArea(&viewer.TXTSTS);
           viewer.clearArea(&viewer.TXTPRI);
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+          game.requestVictoryFade();
+          return; // hasWon will be set after fade completes
+#else
           viewer.ShowFade(Viewer::FADE_VICTORY);
           game.hasWon = true;
+#endif
         } else {
           return;
         }
@@ -1035,17 +1092,24 @@ void Player::PINCAN() {
           while (SDL_PollEvent(&event))
             ; // clear event buffer
 
-          // Pause so player can see status line
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_ASYNCIFY__)
+          // Pause so player can see status line (blocking - skip for non-ASYNCIFY)
           ticks1 = SDL_GetTicks();
           do {
-            SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+            DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
             ticks2 = SDL_GetTicks();
           } while (ticks2 < ticks1 + wizDelay);
+#endif
 
           viewer.clearArea(&viewer.TXTSTS);
           viewer.clearArea(&viewer.TXTPRI);
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+          game.requestVictoryFade();
+          return; // hasWon will be set after fade completes
+#else
           viewer.ShowFade(Viewer::FADE_VICTORY);
           game.hasWon = true;
+#endif
         } else {
           return;
         }
@@ -1064,7 +1128,6 @@ void Player::PLOOK() {
 void Player::PMOVE() {
   int res;
   dodBYTE A, B;
-  Uint32 ticks1;
 
   res = parser.PARSER(parser.DIRTAB, A, B, true);
   if (res < 0) {
@@ -1072,6 +1135,12 @@ void Player::PMOVE() {
     return;
   } else if (res == 0) {
     // Move Forward
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Non-blocking: request animation via state machine
+    game.requestMoveAnimation(0);
+    // Animation will complete in future frames
+#else
+    Uint32 ticks1;
     --viewer.HLFSTP;
     viewer.PUPDAT();
     ticks1 = SDL_GetTicks();
@@ -1083,7 +1152,7 @@ void Player::PMOVE() {
           return;
         }
       }
-      SDL_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
       scheduler.curTime = SDL_GetTicks();
     } while (scheduler.curTime < ticks1 + (moveDelay / 2));
     viewer.HLFSTP = 0;
@@ -1101,12 +1170,19 @@ void Player::PMOVE() {
           return;
         }
       }
-      SDL_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
       scheduler.curTime = SDL_GetTicks();
     } while (scheduler.curTime < ticks1 + (moveDelay / 2));
+#endif
     return;
   } else if (A == Parser::DIR_BACK) {
     // Move Back
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Non-blocking: request animation via state machine
+    game.requestMoveAnimation(2);
+    // Animation will complete in future frames
+#else
+    Uint32 ticks1;
     --viewer.BAKSTP;
     viewer.PUPDAT();
     ticks1 = SDL_GetTicks();
@@ -1118,7 +1194,7 @@ void Player::PMOVE() {
           return;
         }
       }
-      SDL_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
       scheduler.curTime = SDL_GetTicks();
     } while (scheduler.curTime < ticks1 + (moveDelay / 2));
     viewer.BAKSTP = 0;
@@ -1136,9 +1212,10 @@ void Player::PMOVE() {
           return;
         }
       }
-      SDL_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
+      DOD_Delay(8); // Reduced ASYNCIFY overhead for mobile browsers
       scheduler.curTime = SDL_GetTicks();
     } while (scheduler.curTime < ticks1 + (moveDelay / 2));
+#endif
     return;
   } else if (A == Parser::DIR_RIGHT) {
     // Move Right
@@ -1149,6 +1226,12 @@ void Player::PMOVE() {
     }
     PDAM += (POBJWT / 8) + 3;
     HUPDAT();
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Non-blocking: draw_game will be called when animation completes
+    if (game.getState() != dodGame::STATE_PLAYING) {
+      return;
+    }
+#endif
     --viewer.UPDATE;
     viewer.draw_game();
     return;
@@ -1161,6 +1244,12 @@ void Player::PMOVE() {
     }
     PDAM += (POBJWT / 8) + 3;
     HUPDAT();
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Non-blocking: draw_game will be called when animation completes
+    if (game.getState() != dodGame::STATE_PLAYING) {
+      return;
+    }
+#endif
     --viewer.UPDATE;
     viewer.draw_game();
     return;
@@ -1320,6 +1409,12 @@ void Player::PTURN() {
     if (viewer.display_mode == Viewer::MODE_3D) {
       ShowTurn(Parser::DIR_LEFT);
     }
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Non-blocking: draw_game will be called when animation completes
+    if (game.getState() != dodGame::STATE_PLAYING) {
+      return;
+    }
+#endif
     --viewer.UPDATE;
     viewer.draw_game();
     return;
@@ -1330,6 +1425,12 @@ void Player::PTURN() {
     if (viewer.display_mode == Viewer::MODE_3D) {
       ShowTurn(Parser::DIR_RIGHT);
     }
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Non-blocking: draw_game will be called when animation completes
+    if (game.getState() != dodGame::STATE_PLAYING) {
+      return;
+    }
+#endif
     --viewer.UPDATE;
     viewer.draw_game();
     return;
@@ -1340,6 +1441,12 @@ void Player::PTURN() {
     if (viewer.display_mode == Viewer::MODE_3D) {
       ShowTurn(Parser::DIR_AROUND);
     }
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+    // Non-blocking: draw_game will be called when animation completes
+    if (game.getState() != dodGame::STATE_PLAYING) {
+      return;
+    }
+#endif
     --viewer.UPDATE;
     viewer.draw_game();
     return;
@@ -1351,6 +1458,11 @@ void Player::PTURN() {
 
 // Turning Animation
 void Player::ShowTurn(dodBYTE A) {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Non-blocking: request animation via state machine
+  game.requestTurnAnimation(A);
+  // Animation will complete in future frames
+#else
   int ctr, times, x;
   int offset, dir;
   int inc = 32;
@@ -1413,12 +1525,13 @@ void Player::ShowTurn(dodBYTE A) {
           SDL_GL_SwapWindow(oslink.sdlWindow);
           redraw = false;
         }
-        SDL_Delay(4); // Smaller delay for smoother turn animation
+        DOD_Delay(4); // Smaller delay for smoother turn animation
       } while (scheduler.curTime < ticks1 + turnDelay);
     }
   }
   turning = false;
   --HEARTF;
+#endif
 }
 
 // Processes USE command

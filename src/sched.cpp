@@ -64,58 +64,15 @@ void Scheduler::ConfigureChannelSync(int channelCount) {
 }
 
 bool Scheduler::WaitForChannel(int channel, const WaitPump &pump, bool nonBlocking) {
-  // On iOS Safari, frequent ASYNCIFY yield/resume cycles from SDL_Delay(1)
-  // accumulate overhead that can trigger execution timeouts after 2-3 minutes.
-  // Use nonBlocking=true for sounds that don't need synchronous completion.
-  if (nonBlocking) {
-    return true;
-  }
-
-  auto pumpOnce = [&]() -> bool {
-    if (pump) {
-      return pump();
-    }
-    return true;
-  };
-
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-  // Use a longer delay interval to reduce ASYNCIFY overhead on mobile Safari
-  const int delayMs = 8;
-  while (Mix_Playing(channel) == 1) {
-    if (!pumpOnce()) {
-      return false;
-    }
-    SDL_Delay(delayMs);
+  // Without ASYNCIFY, we cannot block waiting for audio.
+  // All audio waits are now non-blocking - sounds play asynchronously.
+  // The pump callback is called once if provided for any immediate processing.
+  (void)channel;
+  (void)nonBlocking;
+  if (pump) {
+    pump();
   }
   return true;
-#else
-  SDL_sem *sem = GetChannelSemaphore(channel);
-  while (Mix_Playing(channel) == 1) {
-    if (!pumpOnce()) {
-      return false;
-    }
-    if (sem != nullptr) {
-      const int waitResult = SDL_SemWaitTimeout(sem, 10);
-      if (waitResult == 0) {
-        continue;
-      }
-      if (waitResult == SDL_MUTEX_TIMEDOUT) {
-        continue;
-      }
-      if (waitResult < 0) {
-        break;
-      }
-    } else {
-      SDL_Delay(8);
-    }
-  }
-  if (sem != nullptr) {
-    while (SDL_SemTryWait(sem) == 0) {
-      // drain semaphore
-    }
-  }
-  return true;
-#endif
 }
 
 SDL_sem *Scheduler::GetChannelSemaphore(int channel) {
@@ -169,6 +126,8 @@ Scheduler::Scheduler() { Reset(); }
 void Scheduler::Reset() {
   curTime = 0;
   elapsedTime = 0;
+  lastFrameTime = 0;
+  accumulator = 0;
   TCBPTR = 0;
   KBDHDR = 0;
   KBDTAL = 0;
@@ -230,75 +189,109 @@ void Scheduler::SYSTCB() {
 //
 // It uses milliseconds instead of JIFFYs.  And it does
 // not have any queues, but a simple array of Task objects.
+//
+// Delta-time compensation: accumulates real time and processes
+// fixed tick steps to maintain consistent game timing regardless
+// of frame rate variations (especially important for browser/mobile).
 bool Scheduler::SCHED() {
-  //    std::cout << "In SCHED" << std::endl;
-  // Initialization
-  int result = 0; // not currently being used
+  // Calculate delta time since last frame
+  Uint32 now = SDL_GetTicks();
+  if (lastFrameTime == 0) {
+    lastFrameTime = now; // First frame initialization
+  }
+  Uint32 dt = now - lastFrameTime;
+  lastFrameTime = now;
 
-  do {
-    // Main game execution loop
-    curTime = SDL_GetTicks();
+  // Clamp dt to avoid spiral of death on lag spikes
+  // 200ms allows more tolerance for mobile frame drops
+  if (dt > 200) {
+    dt = 200;
+  }
 
-    if (curTime >= TCBLND[schedCtr].next_time) {
-      //    std::cout << "In next time" << std::endl;
-      switch (TCBLND[schedCtr].type) {
-      case TID_CLOCK:
-        //    std::cout << "In calling clock" << std::endl;
-        CLOCK();
-        break;
-      case TID_PLAYER:
-        //    std::cout << "In calling player" << std::endl;
-        result = player.PLAYER();
-        break;
-      case TID_REFRESH_DISP:
-        //    std::cout << "In calling display" << std::endl;
-        result = viewer.LUKNEW();
-        break;
-      case TID_HRTSLOW:
-        //    std::cout << "In calling hslow" << std::endl;
-        result = player.HSLOW();
-        break;
-      case TID_TORCHBURN:
-        //    std::cout << "In calling burn" << std::endl;
-        result = player.BURNER();
-        break;
-      case TID_CRTREGEN:
-        //    std::cout << "In calling regen" << std::endl;
-        result = creature.CREGEN();
-        break;
-      case TID_CRTMOVE:
-        //    std::cout << "In calling move" << std::endl;
-        result = creature.CMOVE(schedCtr, TCBLND[schedCtr].data);
-        break;
-      default:
-        // error
-        break;
+  // Accumulate time
+  accumulator += dt;
+
+  // Process fixed-step ticks with catch-up limit
+  Uint32 ticksProcessed = 0;
+  while (accumulator >= TICK_STEP && ticksProcessed < MAX_CATCHUP) {
+    // Update current time for this tick
+    curTime = now - (accumulator - TICK_STEP);
+
+    // Process all tasks for this tick
+    for (schedCtr = 0; schedCtr < TCBPTR; ++schedCtr) {
+      if (curTime >= TCBLND[schedCtr].next_time) {
+        int result = 0;
+        switch (TCBLND[schedCtr].type) {
+        case TID_CLOCK:
+          CLOCK();
+          break;
+        case TID_PLAYER:
+          result = player.PLAYER();
+          break;
+        case TID_REFRESH_DISP:
+          result = viewer.LUKNEW();
+          break;
+        case TID_HRTSLOW:
+          result = player.HSLOW();
+          // HSLOW can trigger faint/recovery animation - exit scheduler immediately
+          // to prevent creature attacks during faint animation
+          if (game.getState() == dodGame::STATE_FAINT_ANIMATION ||
+              game.getState() == dodGame::STATE_RECOVER_ANIMATION) {
+            return false; // Exit scheduler, animation will run next frame
+          }
+          break;
+        case TID_TORCHBURN:
+          result = player.BURNER();
+          break;
+        case TID_CRTREGEN:
+          result = creature.CREGEN();
+          break;
+        case TID_CRTMOVE:
+          result = creature.CMOVE(schedCtr, TCBLND[schedCtr].data);
+          break;
+        default:
+          break;
+        }
+        (void)result; // Suppress unused warning
+      }
+
+      // Check if faint/recovery animation started - stop processing tasks
+      // This prevents creatures from attacking during faint animations
+      if (game.getState() == dodGame::STATE_FAINT_ANIMATION ||
+          game.getState() == dodGame::STATE_RECOVER_ANIMATION) {
+        return false; // Animation running, don't process more tasks
+      }
+
+      // Check for save/load
+      if (ZFLAG != 0) {
+        if (ZFLAG == 0xFF) {
+          return true; // Load game abandons current game
+        } else {
+          SAVE();
+          ZFLAG = 0;
+        }
+      }
+
+      // Check for death
+      if (player.PLRBLK.P_ATPOW < player.PLRBLK.P_ATDAM) {
+        return true; // Death
+      }
+
+      // Check for victory
+      if (game.hasWon) {
+        return true; // Victory
       }
     }
 
-    ++schedCtr;
-    //    std::cout << "after switch" << std::endl;
-    //	(schedCtr < TCBPTR) ? ++schedCtr : schedCtr = 0;
+    accumulator -= TICK_STEP;
+    ++ticksProcessed;
+  }
 
-    if (ZFLAG != 0) // Saving or Loading
-    {
-      if (ZFLAG == 0xFF) {
-        return true; // Load game abandons current game
-      } else {
-        SAVE();
-        ZFLAG = 0;
-      }
-    }
-    //    std::cout << "after ZFLAG" << std::endl;
+  // If we hit the catch-up limit, drain excess accumulator to prevent spiral
+  if (ticksProcessed >= MAX_CATCHUP && accumulator > TICK_STEP) {
+    accumulator = TICK_STEP - 1;
+  }
 
-    if (player.PLRBLK.P_ATPOW < player.PLRBLK.P_ATDAM) {
-      return true; // Death
-    }
-
-    if (game.hasWon) {
-      return true; // Victory
-    }
-  } while (schedCtr < TCBPTR);
   schedCtr = 0;
   return false;
 }
@@ -352,8 +345,9 @@ void Scheduler::CLOCK() {
             player.HEARTS = -1;
           }
           if (!player.turning) {
-            --viewer.UPDATE;
-            viewer.draw_game();
+            // Draw to show heart animation (< > or { }) during faint too
+            // Use lightweight status-line-only redraw to avoid expensive 3D re-render
+            viewer.draw_status_line();
           }
         }
       }
@@ -385,6 +379,14 @@ int Scheduler::GETTCB() {
 
 // Used by wizard fade in/out function
 bool Scheduler::fadeLoop() {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Without ASYNCIFY, blocking fades don't work
+  // The non-blocking fade is handled by game state machine
+  viewer.displayCopyright();
+  viewer.displayWelcomeMessage();
+  viewer.clearArea(&viewer.TXTPRI);
+  return true; // Return true = demo mode (auto-play)
+#else
   SDL_Event event;
   viewer.displayCopyright();
   viewer.displayWelcomeMessage();
@@ -458,9 +460,18 @@ bool Scheduler::fadeLoop() {
       nextFrameTick = now + frameIntervalMs;
     }
   }
+#endif
 }
 
 void Scheduler::deathFadeLoop() {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Without ASYNCIFY, blocking fades don't work - just display and return
+  viewer.displayDeath();
+  viewer.clearArea(&viewer.TXTPRI);
+  // Play death sound once (non-blocking)
+  Mix_PlayChannel(viewer.fadChannel, creature.kaboom, 0);
+  return;
+#else
   SDL_Event event;
   viewer.displayDeath();
   viewer.fadeVal = -2;
@@ -482,7 +493,7 @@ void Scheduler::deathFadeLoop() {
   while (!viewer.done) {
     viewer.death_fade(viewer.W1_VLA);
     EscCheck();
-    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+    DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
 
   // Stop buzz
@@ -499,11 +510,20 @@ void Scheduler::deathFadeLoop() {
         ; // clear event buffer
       return;
     }
-    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+    DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
+#endif
 }
 
 void Scheduler::winFadeLoop() {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_ASYNCIFY__)
+  // Without ASYNCIFY, blocking fades don't work - just display and return
+  viewer.displayWinner();
+  viewer.clearArea(&viewer.TXTPRI);
+  // Play victory sound once (non-blocking)
+  Mix_PlayChannel(viewer.fadChannel, creature.kaboom, 0);
+  return;
+#else
   SDL_Event event;
   bool loopDone = false;
   viewer.displayWinner();
@@ -526,7 +546,7 @@ void Scheduler::winFadeLoop() {
   while (!viewer.done) {
     viewer.death_fade(viewer.W2_VLA);
     EscCheck();
-    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+    DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
 
   // Stop buzz
@@ -540,11 +560,12 @@ void Scheduler::winFadeLoop() {
         ; // clear event buffer
       return;
     }
-    SDL_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
+    DOD_Delay(16); // Reduced ASYNCIFY overhead for mobile browsers
   }
 
   while (SDL_PollEvent(&event))
     ; // clear event buffer
+#endif
 }
 
 // Used by wizard fade in/out function
@@ -809,6 +830,9 @@ void Scheduler::SAVE() {
   fout << outstr << endl;
 
   fout.close();
+
+  // Sync saved games to persistent storage (IndexedDB in Emscripten)
+  oslink.syncSavedGames();
 }
 
 void Scheduler::LOAD() {
