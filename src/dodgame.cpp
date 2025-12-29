@@ -149,6 +149,7 @@ void dodGame::initFadeState(int mode) {
 void dodGame::drawFadeFrame() {
   int *wiz = (fadeMode == Viewer::FADE_VICTORY) ? viewer.W2_VLA : viewer.W1_VLA;
 
+  viewer.beginFrame();
   glClear(GL_COLOR_BUFFER_BIT);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
@@ -162,7 +163,7 @@ void dodGame::drawFadeFrame() {
     viewer.drawArea(&viewer.TXTPRI);
   }
 
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  viewer.endFrame();
 }
 
 // Process one frame of fade animation, returns true when complete
@@ -1172,6 +1173,7 @@ bool dodGame::updateTurnAnimation() {
   int y1 = 135;
   int frameInPass = animFrame % 8;
 
+  viewer.beginFrame();
   glClear(GL_COLOR_BUFFER_BIT);
   glLoadIdentity();
   glColor3fv(viewer.fgColor);
@@ -1186,7 +1188,7 @@ bool dodGame::updateTurnAnimation() {
   // Draw status and text areas
   viewer.drawArea(&viewer.TXTSTS);
   viewer.drawArea(&viewer.TXTPRI);
-  SDL_GL_SwapWindow(oslink.sdlWindow);
+  viewer.endFrame();
 
   return false;
 }
