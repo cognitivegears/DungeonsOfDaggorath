@@ -80,9 +80,6 @@ void Player::LoadSounds() {
 // as possible.  It retrieves keyboard input, or commands
 // from the demo data.
 int Player::PLAYER() {
-  //    std::cout << "In PLAYER" << std::endl;
-  int tokCnt, tokCtr;
-  dodBYTE objstr[10];
   dodBYTE *X, *U;
   int Xup;
 
@@ -125,42 +122,93 @@ int Player::PLAYER() {
       //    std::cout << "human" << std::endl;
     } while (true);
   } else {
-    // Process Autoplay Commands
-    tokCnt = game.DEMO_CMDS[game.DEMOPTR++];
-    if (tokCnt == 0) {
-      game.WAIT();
-      game.WAIT();
-      game.hasWon = true;
-      game.demoRestart = true;
-      return 0;
+    // Process Autoplay Commands using state machine for proper timing
+    // Each token gets a 1.5 second pause before being typed
+
+    switch (game.demoPhase) {
+    case dodGame::DEMO_PHASE_IDLE: {
+      // Ready for next command - read token count
+      int tokCnt = game.DEMO_CMDS[game.DEMOPTR++];
+      if (tokCnt == 0) {
+        // End of demo - wait 3 seconds (2x 1.5s) before restart
+        game.demoWaitUntil = scheduler.curTime + 3000;
+        game.demoTokCnt = 0;  // Flag for end-of-demo
+        game.demoPhase = dodGame::DEMO_PHASE_WAIT;
+        return 0;
+      }
+      // Start new command
+      game.demoTokCnt = tokCnt;
+      game.demoTokCtr = 1;
+      game.demoWaitUntil = scheduler.curTime + 1500;  // 1.5 second wait
+      game.demoPhase = dodGame::DEMO_PHASE_WAIT;
+      return 0;  // Yield to scheduler
     }
 
-    // Feed next autoplay command to HUMAN
-    tokCtr = 1;
+    case dodGame::DEMO_PHASE_WAIT: {
+      // Check if wait time has elapsed
+      if (scheduler.curTime < game.demoWaitUntil) {
+        return 0;  // Still waiting, yield to scheduler
+      }
 
-    do {
-      if (tokCtr == 1) {
+      // Check for demo interruption
+      if (game.AUTFLG && game.demoRestart == false) {
+        return 0;
+      }
+
+      // Wait complete
+      if (game.demoTokCnt == 0) {
+        // End of demo wait complete
+        game.hasWon = true;
+        game.demoRestart = true;
+        game.demoPhase = dodGame::DEMO_PHASE_IDLE;
+        return 0;
+      }
+
+      // Expand current token into buffer
+      if (game.demoTokCtr == 1) {
         X = &parser.CMDTAB[game.DEMO_CMDS[game.DEMOPTR]];
-      } else if (tokCtr == 2) {
+      } else if (game.demoTokCtr == 2) {
         X = &parser.DIRTAB[game.DEMO_CMDS[game.DEMOPTR]];
       } else {
         X = &object.GENTAB[game.DEMO_CMDS[game.DEMOPTR]];
       }
       ++game.DEMOPTR;
-      U = &objstr[1];
+      U = &game.demoCharBuffer[1];
       parser.EXPAND(X, &Xup, U);
-      ++U;
-      game.WAIT();
-      do {
-        HUMAN(*U);
-        ++U;
-      } while (*U != 0xFF);
+      game.demoCharPos = 2;  // First char is at position 2 after EXPAND
+      game.demoPhase = dodGame::DEMO_PHASE_TYPING;
+      // Fall through to start typing immediately
+    }
+    // fall through
+
+    case dodGame::DEMO_PHASE_TYPING: {
+      // Type one character at a time
+      c = game.demoCharBuffer[game.demoCharPos];
+      if (c != 0xFF) {
+        HUMAN(c);
+        ++game.demoCharPos;
+        return 0;  // Yield after each character for visible typing
+      }
+
+      // End of token - add space
       HUMAN(parser.I_SP);
-      ++tokCtr;
-    } while (tokCtr <= tokCnt);
-    --viewer.UPDATE;
-    viewer.draw_game();
-    HUMAN(parser.I_CR);
+      ++game.demoTokCtr;
+
+      if (game.demoTokCtr <= game.demoTokCnt) {
+        // More tokens to process - wait before next token
+        game.demoWaitUntil = scheduler.curTime + 1500;
+        game.demoPhase = dodGame::DEMO_PHASE_WAIT;
+        return 0;
+      }
+
+      // All tokens complete - execute command
+      --viewer.UPDATE;
+      viewer.draw_game();
+      HUMAN(parser.I_CR);
+      game.demoPhase = dodGame::DEMO_PHASE_IDLE;
+      return 0;
+    }
+    }
   }
 
   return 0;

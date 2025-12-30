@@ -76,6 +76,13 @@ public:
 		POST_FADE_VICTORY,       // Handle victory
 	};
 
+	// Demo playback phases (for non-blocking demo timing)
+	enum DemoPhase {
+		DEMO_PHASE_IDLE,         // Ready to start next command
+		DEMO_PHASE_WAIT,         // Waiting 1.5s before typing token
+		DEMO_PHASE_TYPING,       // Typing characters of current token
+	};
+
 	// Constructor
 	dodGame();
 
@@ -85,6 +92,7 @@ public:
 	void Restart();
 	void LoadGame();
 	void WAIT();
+	void resetDemoState();  // Reset demo state machine for new demo
 
 	// State machine interface (non-blocking)
 	bool updateState();  // Called each frame, returns true when scheduler should run
@@ -113,6 +121,15 @@ public:
 	bool	demoRestart;
 	int		DEMOPTR;
 	dodBYTE DEMO_CMDS[256];
+
+	// Demo state machine (for non-blocking demo playback)
+	DemoPhase demoPhase;         // Current phase of demo playback
+	Uint32 demoWaitUntil;        // Timestamp when current 1.5s wait ends
+	int demoTokCnt;              // Total tokens in current command (1-3)
+	int demoTokCtr;              // Current token being processed (1-based)
+	dodBYTE demoCharBuffer[32];  // Expanded token characters
+	int demoCharPos;             // Current position in character buffer
+	bool demoCommandComplete;    // Whether current command is done (ready for CR)
 
 	// State machine variables
 	GameState gameState;

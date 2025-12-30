@@ -51,6 +51,8 @@ extern RNG rng;
 // Constructor
 dodGame::dodGame()
     : LEVEL(2), AUTFLG(true), hasWon(false), DEMOPTR(0), demoRestart(true),
+      demoPhase(DEMO_PHASE_IDLE), demoWaitUntil(0), demoTokCnt(0), demoTokCtr(0),
+      demoCharPos(0), demoCommandComplete(false),
       gameState(STATE_INIT), returnState(STATE_PLAYING),
       stateStartTime(0), stateWaitTime(0), nextFrameTime(0), initialized(false),
       fadePhase(FADE_PHASE_DONE), postFadeAction(POST_FADE_NONE),
@@ -67,6 +69,7 @@ dodGame::dodGame()
                          D_PULL_LEFT D_SHIELD D_PULL_RIGHT D_SWORD D_MOVE D_MOVE
                              D_ATTACK_RIGHT D_TURN_RIGHT D_MOVE D_MOVE D_MOVE
                                  D_TURN_RIGHT D_MOVE D_MOVE D_END);
+  memset(demoCharBuffer, 0, sizeof(demoCharBuffer));
 }
 
 // Game initialization - non-blocking, sets up state machine
@@ -1048,12 +1051,20 @@ void dodGame::INIVU() {
   player.PLOOK();
 }
 
-// Pause 1.5 seconds - non-blocking version
+// Reset demo state machine for starting a new demo
+void dodGame::resetDemoState() {
+  demoPhase = DEMO_PHASE_IDLE;
+  demoWaitUntil = 0;
+  demoTokCnt = 0;
+  demoTokCtr = 0;
+  demoCharPos = 0;
+  demoCommandComplete = false;
+  memset(demoCharBuffer, 0, sizeof(demoCharBuffer));
+}
+
+// Legacy WAIT function - now just checks for demo interruption
+// The actual 1.5s wait timing is handled by the demo state machine in PLAYER()
 void dodGame::WAIT() {
-  scheduler.curTime = SDL_GetTicks();
-  if (scheduler.curTime >= scheduler.TCBLND[0].next_time) {
-    scheduler.CLOCK();
-  }
   scheduler.EscCheck();
 }
 
