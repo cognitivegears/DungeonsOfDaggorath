@@ -347,6 +347,7 @@ void OS_Link::render() {
       if (game.demoRestart) {
         game.hasWon = false;
         game.DEMOPTR = 0;
+        game.resetDemoState();
         object.Reset();
         creature.Reset();
         parser.Reset();
@@ -373,6 +374,7 @@ void OS_Link::render() {
       if (game.demoRestart) {
         // Demo won - restart demo
         game.DEMOPTR = 0;
+        game.resetDemoState();
         object.Reset();
         creature.Reset();
         parser.Reset();
@@ -420,6 +422,7 @@ void OS_Link::render() {
           // Restart demo
           game.hasWon = false;
           game.DEMOPTR = 0;
+          game.resetDemoState();
           object.Reset();
           creature.Reset();
           parser.Reset();
