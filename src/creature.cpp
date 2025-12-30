@@ -309,6 +309,16 @@ int Creature::CREGEN()
 // type, and its location relative to the player.
 int Creature::CMOVE(int task, int cidx)
 {
+	// Skip creature movement during demo wait phases
+	// In the original blocking WAIT(), only CLOCK() ran - creatures didn't move
+	// This preserves that behavior in the state-based demo system
+	if (game.AUTFLG && game.demoPhase == dodGame::DEMO_PHASE_WAIT) {
+		// Postpone creature's next action to prevent accumulating "owed" actions
+		// when the wait ends
+		scheduler.TCBLND[task].next_time = scheduler.curTime + 17;
+		return 0;
+	}
+
 	int oidx, dir, X, loop;
 	bool doRandom = false;
 	dodBYTE r, c, rnd, d;
