@@ -930,6 +930,9 @@ void Scheduler::LOAD() {
   fin >> instr;
   if (1 == sscanf(instr, "%d", &in))
     creature.FRZFLG = in;
+  // Always reset FRZFLG to 0 after load - saved games shouldn't start frozen.
+  // This also works around a potential bug where FRZFLG could become corrupted.
+  creature.FRZFLG = 0;
   fin >> instr;
   if (1 == sscanf(instr, "%d", &in))
     creature.CMXPTR = in;

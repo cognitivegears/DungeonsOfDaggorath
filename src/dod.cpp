@@ -90,6 +90,18 @@ extern "C" {
         return game.AUTFLG ? 1 : 0;
     }
 
+    void sendkey(int keycode) {
+        oslink.send_key(keycode);
+    }
+
+    int ismenuopen() {
+        dodGame::GameState state = game.getState();
+        return (state == dodGame::STATE_MENU ||
+                state == dodGame::STATE_MENU_LIST ||
+                state == dodGame::STATE_MENU_SCROLLBAR ||
+                state == dodGame::STATE_MENU_STRING) ? 1 : 0;
+    }
+
 }
 
 void printalpha(int * vl, int len, std::string name)

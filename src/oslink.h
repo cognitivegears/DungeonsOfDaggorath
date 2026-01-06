@@ -50,6 +50,7 @@ public:
     void sendCommand(const char * cmd); // Send a command string and execute it
     void stop_demo(); // Stop the demo / start game
     void trigger_menu(); // Open in-game menu
+    void send_key(int keycode); // Send SDL key event for menu navigation
     void render(void);
     bool menuReturn(int, int, menu); // Non-blocking wrapper for main menu handling
 	int  menu_scrollbar(std::string title, int min, int max, int current);
