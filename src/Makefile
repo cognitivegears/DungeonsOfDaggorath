@@ -1,4 +1,4 @@
-OBJECTS = creature.o dod.o dodgame.o dungeon.o enhanced.o object.o oslink.o parser.o player.o sched.o viewer.o
+OBJECTS = creature.o dod.o dodgame.o dungeon.o enhanced.o object.o oslink.o parser.o player.o sched.o shader.o viewer.o
 
 # Single-threaded WASM build - no ASYNCIFY or pthreads
 # Timing is handled via delta-time compensation in the scheduler
@@ -64,7 +64,7 @@ enhanced.o: enhanced.cpp oslink.h dodgame.h parser.h enhanced.h dod.h
 object.o: object.cpp object.h dodgame.h parser.h oslink.h dod.h
 	$(CXX) $(CXXFLAGS) object.cpp
 
-oslink.o: oslink.cpp oslink.h dodgame.h viewer.h sched.h player.h dungeon.h parser.h object.h creature.h enhanced.h dod.h
+oslink.o: oslink.cpp oslink.h dodgame.h viewer.h sched.h player.h dungeon.h parser.h object.h creature.h enhanced.h dod.h shader.h
 	$(CXX) $(CXXFLAGS) oslink.cpp
 
 parser.o: parser.cpp parser.h viewer.h dod.h
@@ -76,7 +76,10 @@ player.o: player.cpp player.h dodgame.h viewer.h sched.h parser.h object.h dunge
 sched.o: sched.cpp sched.h player.h viewer.h oslink.h creature.h parser.h dodgame.h dungeon.h object.h dod.h
 	$(CXX) $(CXXFLAGS) sched.cpp
 
-viewer.o: viewer.cpp viewer.h oslink.h player.h sched.h parser.h object.h dungeon.h creature.h enhanced.h dod.h
+shader.o: shader.cpp shader.h artifact_shader.h dod.h oslink.h
+	$(CXX) $(CXXFLAGS) shader.cpp
+
+viewer.o: viewer.cpp viewer.h oslink.h player.h sched.h parser.h object.h dungeon.h creature.h enhanced.h dod.h shader.h
 	$(CXX) $(CXXFLAGS) viewer.cpp
 
 clean:

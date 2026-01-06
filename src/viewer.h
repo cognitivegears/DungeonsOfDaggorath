@@ -38,6 +38,11 @@ public:
 	void		setup_opengl();
 	void		draw_game();
 	void		draw_status_line();  // Lightweight redraw for heartbeat animation
+
+	// Artifact color frame helpers - use these instead of direct SDL_GL_SwapWindow
+	void		beginFrame();   // Call before rendering (sets up FBO if artifact mode)
+	void		endFrame();     // Call after rendering (applies artifact effect and swaps)
+
 	bool		draw_fade();
 	void		enough_fade();
 	void		death_fade(int WIZ[]);

@@ -119,6 +119,7 @@ std::string formatTimestampForMenu(const std::string &raw) {
 #include "parser.h"
 #include "player.h"
 #include "sched.h"
+#include "shader.h"
 #include "viewer.h"
 
 extern Creature creature;
@@ -568,6 +569,12 @@ void OS_Link::init() {
   changeVideoRes(width); // All changing video res code was moved here
   SDL_SetWindowTitle(sdlWindow, "Dungeons of Daggorath");
 
+  // Initialize shader manager for NTSC artifact colors
+  if (!shaderMgr.init()) {
+    fprintf(stderr, "Warning: Shader initialization failed, artifact colors disabled\n");
+    g_options &= ~OPT_ARTIFACT;
+  }
+
   //    std::cout << "After video res" << std::endl;
   memset(keys, parser.C_SP, keyLen);
 
@@ -684,6 +691,7 @@ void OS_Link::process_events() {
 
 // Quits application
 void OS_Link::quitSDL(int code) {
+  shaderMgr.shutdown();
   Mix_CloseAudio();
   SDL_Quit();
   exit(code);
@@ -1074,22 +1082,45 @@ bool OS_Link::menu_return(int menu_id, int item, menu Menu) {
 
     case FILE_MENU_GRAPHICS: {
       // Static to survive function return for non-blocking menu
-      static std::string graphicsMenuList[] = {"NORMAL GRAPHICS", "HIRES GRAPHICS",
-                                               "VECTOR GRAPHICS"};
+      static std::string graphicsMenuList[] = {
+        "NORMAL - NTSC",
+        "NORMAL - NTSC INV",
+        "NORMAL - RGB",
+        "HIRES  - NTSC",
+        "HIRES  - NTSC INV",
+        "HIRES  - RGB",
+        "VECTOR"
+      };
 
       int result = menu_list(menu_id * 5, item + 2, Menu.getMenuItem(menu_id, item),
-                             graphicsMenuList, 3);
+                             graphicsMenuList, 7);
       if (result == -2) return false; // Pending - submenu started
       switch (result) {
-      case 0:
-        g_options &= ~(OPT_VECTOR | OPT_HIRES);
+      case 0: // NORMAL (NTSC)
+        g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT_FLIP);
+        g_options |= OPT_ARTIFACT;
         break;
-      case 1:
+      case 1: // NORMAL (INVERTED NTSC)
+        g_options &= ~(OPT_VECTOR | OPT_HIRES);
+        g_options |= (OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+        break;
+      case 2: // NORMAL (RGB)
+        g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+        break;
+      case 3: // HIRES (NTSC)
+        g_options &= ~(OPT_VECTOR | OPT_ARTIFACT_FLIP);
+        g_options |= (OPT_HIRES | OPT_ARTIFACT);
+        break;
+      case 4: // HIRES (INVERTED NTSC)
         g_options &= ~(OPT_VECTOR);
+        g_options |= (OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+        break;
+      case 5: // HIRES (RGB)
+        g_options &= ~(OPT_VECTOR | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
         g_options |= OPT_HIRES;
         break;
-      case 2:
-        g_options &= ~(OPT_HIRES);
+      case 6: // VECTOR
+        g_options &= ~(OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
         g_options |= OPT_VECTOR;
         break;
       default:
@@ -1623,6 +1654,16 @@ void OS_Link::loadOptFile(void) {
       } else if (!strcmp(inputString, "Cheats")) {
         if (1 == sscanf(breakPoint, "%d", &in))
           g_cheats = in;
+      } else if (!strcmp(inputString, "artifactColors")) {
+        if (!strcmp(breakPoint, "ON"))
+          g_options |= OPT_ARTIFACT;
+        else
+          g_options &= ~OPT_ARTIFACT;
+      } else if (!strcmp(inputString, "artifactPhase")) {
+        if (!strcmp(breakPoint, "FLIPPED"))
+          g_options |= OPT_ARTIFACT_FLIP;
+        else
+          g_options &= ~OPT_ARTIFACT_FLIP;
       }
     }
 
@@ -1684,6 +1725,11 @@ bool OS_Link::saveOptFile(void) {
   fout << "ModernControls=" << game.ModernControls << endl;
   fout << "Cheats=" << g_cheats << endl;
 
+  fout << "artifactColors=";
+  fout << ((g_options & OPT_ARTIFACT) ? "ON" : "OFF") << endl;
+  fout << "artifactPhase=";
+  fout << ((g_options & OPT_ARTIFACT_FLIP) ? "FLIPPED" : "NORMAL") << endl;
+
   fout.close();
 
   return true;
@@ -1707,8 +1753,8 @@ void OS_Link::loadDefaults(void) {
   creatureRegen = 5;
   scheduler.updateCreatureRegen(creatureRegen);
 
-  g_options &= ~(OPT_VECTOR | OPT_HIRES);
-  g_options |= OPT_STEREO;
+  g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT_FLIP);
+  g_options |= OPT_STEREO | OPT_ARTIFACT;
   g_cheats = 0;
 
   // Initialize gameplay mod settings
