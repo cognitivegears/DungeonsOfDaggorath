@@ -110,6 +110,9 @@ void Creature::NEWLVL()
 	dodBYTE	a, b;
 	int		u, idx, tmp;
 
+	// Reset freeze flag on level change - creatures should always be active on a new level
+	FRZFLG = 0;
+
 	CMXPTR = game.LEVEL * CTYPES;
 	dungeon.CalcVFI();
 	for (tmp = 0; tmp < 32; ++tmp)
@@ -175,10 +178,17 @@ void Creature::CBIRTH(dodBYTE typ)
 	dodBYTE		rw, cl;
 	int			TCBindex;
 
+	// Find an empty creature slot
 	u = -1;
 	do
 	{
 		++u;
+		// Bounds check: prevent buffer overflow if all 32 slots are full
+		if (u >= 32)
+		{
+			printf("CBIRTH: ERROR - No empty creature slots available!\n");
+			return;
+		}
 	} while (CCBLND[u].P_CCUSE != 0);
 	--CCBLND[u].P_CCUSE;
 
@@ -309,6 +319,19 @@ int Creature::CREGEN()
 // type, and its location relative to the player.
 int Creature::CMOVE(int task, int cidx)
 {
+	// Debug: Log when FRZFLG is non-zero (creatures are frozen)
+	// This helps diagnose the freeze bug where creatures stop moving entirely
+	static Uint32 lastFreezeLogTime = 0;
+	if (FRZFLG != 0) {
+		Uint32 now = SDL_GetTicks();
+		// Only log once per second to avoid console spam
+		if (now - lastFreezeLogTime > 1000) {
+			printf("CMOVE DEBUG: FRZFLG=%d (non-zero = creatures frozen), task=%d, cidx=%d, level=%d\n",
+				FRZFLG, task, cidx, game.LEVEL);
+			lastFreezeLogTime = now;
+		}
+	}
+
 	// Skip creature movement during demo wait phases
 	// In the original blocking WAIT(), only CLOCK() ran - creatures didn't move
 	// This preserves that behavior in the state-based demo system
