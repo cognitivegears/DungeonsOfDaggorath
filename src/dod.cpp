@@ -33,6 +33,9 @@ is held by Douglas J. Morgan.
 #include "viewer.h"
 #include "oslink.h"
 #include "parser.h"
+#include "enhanced.h"
+#include <cstring>
+#include <cstdlib>
 
 dodGame		game;
 Coordinate	crd;
@@ -88,6 +91,89 @@ extern "C" {
 
     int isdemo() {
         return game.AUTFLG ? 1 : 0;
+    }
+
+    void applyconfig(const char* config) {
+        // Parse pipe-delimited config string
+        // Format: "graphics_mode=vector|volume=64|mod=shield_fix|cheat=invulnerable"
+        if (!config || !*config) return;
+
+        char* configCopy = strdup(config);
+        char* token = strtok(configCopy, "|");
+
+        while (token) {
+            char* eq = strchr(token, '=');
+            if (eq) {
+                *eq = '\0';
+                const char* key = token;
+                const char* value = eq + 1;
+
+                // Graphics mode
+                if (strcmp(key, "graphics_mode") == 0) {
+                    // Clear graphics flags first
+                    g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+
+                    if (strcmp(value, "vector") == 0) {
+                        g_options |= OPT_VECTOR;
+                    } else if (strcmp(value, "normal_ntsc") == 0) {
+                        g_options |= OPT_ARTIFACT;
+                    } else if (strcmp(value, "normal_ntsc_inv") == 0) {
+                        g_options |= OPT_ARTIFACT | OPT_ARTIFACT_FLIP;
+                    } else if (strcmp(value, "hires_rgb") == 0) {
+                        g_options |= OPT_HIRES;
+                    } else if (strcmp(value, "hires_ntsc") == 0) {
+                        g_options |= OPT_HIRES | OPT_ARTIFACT;
+                    } else if (strcmp(value, "hires_ntsc_inv") == 0) {
+                        g_options |= OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP;
+                    }
+                    // normal_rgb leaves all flags cleared
+                }
+                // Volume (0-128)
+                else if (strcmp(key, "volume") == 0) {
+                    int vol = atoi(value);
+                    if (vol >= 0 && vol <= 128) {
+                        oslink.volumeLevel = vol;
+                    }
+                }
+                // Mods
+                else if (strcmp(key, "mod") == 0) {
+                    if (strcmp(value, "shield_fix") == 0) {
+                        game.ShieldFix = true;
+                    } else if (strcmp(value, "vision_scroll") == 0) {
+                        game.VisionScroll = true;
+                    } else if (strcmp(value, "mark_doors") == 0) {
+                        game.MarkDoorsOnScrollMaps = true;
+                    } else if (strcmp(value, "creatures_ignore_objects") == 0) {
+                        game.CreaturesIgnoreObjects = true;
+                    } else if (strcmp(value, "creatures_insta_regen") == 0) {
+                        game.CreaturesInstaRegen = true;
+                    } else if (strcmp(value, "random_mazes") == 0) {
+                        game.RandomMaze = true;
+                    } else if (strcmp(value, "modern_controls") == 0) {
+                        game.ModernControls = true;
+                    }
+                }
+                // Cheats
+                else if (strcmp(key, "cheat") == 0) {
+                    if (strcmp(value, "torch_always_lit") == 0) {
+                        g_cheats |= CHEAT_TORCH;
+                    } else if (strcmp(value, "ring_always_works") == 0) {
+                        g_cheats |= CHEAT_RING;
+                    } else if (strcmp(value, "creature_scaling") == 0) {
+                        g_cheats |= CHEAT_REGEN_SCALING;
+                    } else if (strcmp(value, "mithril_items") == 0) {
+                        g_cheats |= CHEAT_ITEMS;
+                    } else if (strcmp(value, "easy_reveal") == 0) {
+                        g_cheats |= CHEAT_REVEAL;
+                    } else if (strcmp(value, "invulnerable") == 0) {
+                        g_cheats |= CHEAT_INVULNERABLE;
+                    }
+                }
+            }
+            token = strtok(NULL, "|");
+        }
+
+        free(configCopy);
     }
 
     void sendkey(int keycode) {

@@ -20,7 +20,7 @@ ifdef EMSCRIPTEN
 #CCLINK  = -s USE_SDL=2 -O3 -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ -s FULL_ES2=1 -s ASYNCIFY -s WASM=1 -s EXIT_RUNTIME=1
 ifdef WEBSITE
 OUTPUT  = ../../index.js
-CCLINK  = $(EMFLAGS) -s USE_SDL=2 -O3 -flto -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main","_triggermenu","_isdemo","_sendkey","_ismenuopen"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
+CCLINK  = $(EMFLAGS) -s USE_SDL=2 -O3 -flto -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ -s EXPORTED_FUNCTIONS='["_sendinput", "_stopdemo", "_getinventory","_getfloor", "_main","_triggermenu","_isdemo","_sendkey","_ismenuopen","_applyconfig"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 else
 OUTPUT  = ../docs/index.html
 CCLINK  = $(EMFLAGS) -s USE_SDL=2 -O3 -flto -s USE_SDL_MIXER=2 -s USE_REGAL=1 --preload-file ../assets@/ --shell-file standalone.html
