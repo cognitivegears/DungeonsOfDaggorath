@@ -628,13 +628,46 @@ bool dodGame::updateMenu() {
         break;
       }
       case FILE_MENU_GRAPHICS:
-        if (result >= 0) {
-          switch (result) {
-          case 0: g_options &= ~(OPT_VECTOR | OPT_HIRES); break;
-          case 1: g_options &= ~(OPT_VECTOR); g_options |= OPT_HIRES; break;
-          case 2: g_options &= ~(OPT_HIRES); g_options |= OPT_VECTOR; break;
-          }
-          closeMenu = true; // Graphics selection closes menu
+        // Apply graphics mode based on 7-option menu
+        // (oslink.cpp's code only runs in blocking mode, not WebAssembly)
+        switch (result) {
+        case 0: // NORMAL - NTSC
+          g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT_FLIP);
+          g_options |= OPT_ARTIFACT;
+          closeMenu = true;
+          break;
+        case 1: // NORMAL - NTSC INV
+          g_options &= ~(OPT_VECTOR | OPT_HIRES);
+          g_options |= (OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+          closeMenu = true;
+          break;
+        case 2: // NORMAL - RGB
+          g_options &= ~(OPT_VECTOR | OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+          closeMenu = true;
+          break;
+        case 3: // HIRES - NTSC
+          g_options &= ~(OPT_VECTOR | OPT_ARTIFACT_FLIP);
+          g_options |= (OPT_HIRES | OPT_ARTIFACT);
+          closeMenu = true;
+          break;
+        case 4: // HIRES - NTSC INV
+          g_options &= ~(OPT_VECTOR);
+          g_options |= (OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+          closeMenu = true;
+          break;
+        case 5: // HIRES - RGB
+          g_options &= ~(OPT_VECTOR | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+          g_options |= OPT_HIRES;
+          closeMenu = true;
+          break;
+        case 6: // VECTOR
+          g_options &= ~(OPT_HIRES | OPT_ARTIFACT | OPT_ARTIFACT_FLIP);
+          g_options |= OPT_VECTOR;
+          closeMenu = true;
+          break;
+        default:
+          // BACK or invalid - stay in menu
+          break;
         }
         break;
       case FILE_MENU_VOLUME:
